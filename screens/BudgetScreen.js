@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import {
   View,
@@ -19,19 +19,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const BASE = 'https://finance-tracker-production-e13e.up.railway.app/api/v1';
 
-async function authedFetch(path, options = {}) {
-  const token = await AsyncStorage.getItem('access_token');
-  return fetch(`${BASE}${path}`, {
-    ...options,
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-      ...(options.headers || {}),
-    },
-  });
-}
 
 export default function BudgetScreen({ navigation }) {
+  const [token, setToken] = useState(null);
   const [budgets, setBudgets] = useState([]);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -44,13 +34,15 @@ export default function BudgetScreen({ navigation }) {
   const [amount, setAmount] = useState('');
   const [saving, setSaving] = useState(false);
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (tok) => {
+    if (!tok) return;
     setLoading(true);
     setError(null);
     try {
+      const headers = { Authorization: `Bearer ${tok}`, 'Content-Type': 'application/json' };
       const [budgetsRes, categoriesRes] = await Promise.all([
-        authedFetch('/budgets'),
-        authedFetch('/categories'),
+        fetch(`${BASE}/budgets`, { headers }),
+        fetch(`${BASE}/categories`, { headers }),
       ]);
 
       if (budgetsRes.status === 401 || categoriesRes.status === 401) {
@@ -73,19 +65,41 @@ export default function BudgetScreen({ navigation }) {
         categoriesRes.json(),
       ]);
 
-      setBudgets(budgetsData);
-      setCategories(categoriesData);
+      console.log('[BudgetScreen] budgets raw data:', JSON.stringify(budgetsData));
+      setBudgets(Array.isArray(budgetsData) ? budgetsData : (budgetsData.items ?? []));
+      setCategories([...(categoriesData.system ?? []), ...(categoriesData.custom ?? [])]);
     } catch (err) {
+      console.error('[BudgetScreen] fetchData error:', err);
       setError(err.message || 'Failed to load budgets.');
     } finally {
       setLoading(false);
     }
   }, [navigation]);
 
+  // Load token once on mount; fetchData fires from the effect below when token is set.
+  useEffect(() => {
+    AsyncStorage.getItem('access_token')
+      .then(tok => {
+        if (!tok) {
+          navigation.replace('Login');
+        } else {
+          console.log('[BudgetScreen] token loaded');
+          setToken(tok);
+        }
+      })
+      .catch(err => console.error('[BudgetScreen] failed to load token:', err));
+  }, [navigation]);
+
+  // Fetch whenever the token becomes available (skips the initial null state).
+  useEffect(() => {
+    if (token) fetchData(token);
+  }, [token, fetchData]);
+
+  // Re-fetch when the screen regains focus (e.g. returning from another screen).
   useFocusEffect(
     useCallback(() => {
-      fetchData();
-    }, [fetchData])
+      if (token) fetchData(token);
+    }, [token, fetchData])
   );
 
   function openAddModal() {
@@ -98,7 +112,7 @@ export default function BudgetScreen({ navigation }) {
   function openEditModal(budget) {
     setEditingBudget(budget);
     setSelectedCategory(
-      categories.find((c) => c.id === (budget.category_id ?? budget.category?.id)) ?? null
+      (Array.isArray(categories) ? categories : []).find((c) => c.id === (budget.category_id ?? budget.category?.id)) ?? null
     );
     setAmount(String(budget.amount ?? ''));
     setModalVisible(true);
@@ -124,18 +138,32 @@ export default function BudgetScreen({ navigation }) {
 
     setSaving(true);
     try {
+      const now = new Date();
+      const month = now.getMonth() + 1;
+      const year = now.getFullYear();
+
       const body = {
         category_id: selectedCategory.id,
         amount: parsed,
+        month,
+        year,
       };
       if (editingBudget?.id) {
         body.id = editingBudget.id;
       }
 
-      const res = await authedFetch('/budgets', {
+      console.log('[BudgetScreen] saving budget, body:', JSON.stringify(body));
+
+      const res = await fetch(`${BASE}/budgets`, {
         method: 'PUT',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify(body),
       });
+
+      console.log('[BudgetScreen] save response status:', res.status);
 
       if (res.status === 401) {
         await AsyncStorage.removeItem('access_token');
@@ -148,8 +176,9 @@ export default function BudgetScreen({ navigation }) {
       }
 
       closeModal();
-      fetchData();
+      await fetchData(token);
     } catch (err) {
+      console.error('[BudgetScreen] handleSave error:', err);
       Alert.alert('Error', err.message || 'Failed to save budget.');
     } finally {
       setSaving(false);
@@ -267,7 +296,7 @@ export default function BudgetScreen({ navigation }) {
               style={styles.categoryScroll}
               contentContainerStyle={styles.categoryScrollContent}
             >
-              {categories.map((cat) => {
+              {(Array.isArray(categories) ? categories : []).map((cat) => {
                 const selected = selectedCategory?.id === cat.id;
                 return (
                   <TouchableOpacity
