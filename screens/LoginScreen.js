@@ -71,7 +71,7 @@ export default function LoginScreen({ navigation }) {
             <TextInput
               style={[styles.input, errors.email && styles.inputError]}
               placeholder="you@example.com"
-              placeholderTextColor="#aaa"
+              placeholderTextColor="#a0aec0"
               value={email}
               onChangeText={setEmail}
               keyboardType="email-address"
@@ -86,7 +86,7 @@ export default function LoginScreen({ navigation }) {
             <TextInput
               style={[styles.input, errors.password && styles.inputError]}
               placeholder="••••••••"
-              placeholderTextColor="#aaa"
+              placeholderTextColor="#a0aec0"
               value={password}
               onChangeText={setPassword}
               secureTextEntry
@@ -122,7 +122,7 @@ export default function LoginScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: '#1a1a2e',
   },
   inner: {
     flex: 1,
@@ -133,12 +133,12 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: '700',
-    color: '#111',
+    color: '#f0f4f8',
     marginBottom: 6,
   },
   subtitle: {
     fontSize: 15,
-    color: '#666',
+    color: '#a0aec0',
     marginBottom: 36,
   },
   form: {
@@ -150,28 +150,28 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#333',
+    color: '#f0f4f8',
   },
   input: {
     height: 48,
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: '#2a2a4a',
     borderRadius: 10,
     paddingHorizontal: 14,
     fontSize: 15,
-    color: '#111',
-    backgroundColor: '#fafafa',
+    color: '#f0f4f8',
+    backgroundColor: '#16213e',
   },
   inputError: {
-    borderColor: '#e53935',
+    borderColor: '#fc8181',
   },
   errorText: {
     fontSize: 12,
-    color: '#e53935',
+    color: '#fc8181',
   },
   button: {
     height: 50,
-    backgroundColor: '#111',
+    backgroundColor: '#4f6ef7',
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
@@ -192,12 +192,12 @@ const styles = StyleSheet.create({
   },
   footerText: {
     fontSize: 14,
-    color: '#666',
+    color: '#a0aec0',
   },
   link: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#111',
+    color: '#4f6ef7',
     textDecorationLine: 'underline',
   },
 });
