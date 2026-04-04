@@ -104,26 +104,25 @@ export default function TransactionsScreen({ navigation }) {
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Transactions</Text>
       </View>
-      {transactions.length === 0 ? (
-        <View style={styles.emptyContainer}>
-          <Text style={styles.emptyText}>No transactions yet.</Text>
-        </View>
-      ) : (
-        <FlatList
-          data={transactions}
-          keyExtractor={(item, index) => item.id?.toString() ?? index.toString()}
-          renderItem={renderItem}
-          contentContainerStyle={styles.listContent}
-          ItemSeparatorComponent={() => <View style={styles.separator} />}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={() => fetchTransactions(true)}
-              tintColor="#4f6ef7"
-            />
-          }
-        />
-      )}
+      <FlatList
+        data={transactions}
+        keyExtractor={(item, index) => item.id?.toString() ?? index.toString()}
+        renderItem={renderItem}
+        contentContainerStyle={styles.listContent}
+        ItemSeparatorComponent={() => <View style={styles.separator} />}
+        ListEmptyComponent={
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyText}>No transactions yet.</Text>
+          </View>
+        }
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => fetchTransactions(true)}
+            tintColor="#4f6ef7"
+          />
+        }
+      />
     </SafeAreaView>
   );
 }
