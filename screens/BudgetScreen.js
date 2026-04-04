@@ -47,7 +47,7 @@ export default function BudgetScreen({ navigation }) {
 
       if (budgetsRes.status === 401 || categoriesRes.status === 401) {
         await AsyncStorage.removeItem('access_token');
-        navigation.replace('Login');
+        navigation.getParent()?.replace('Login');
         return;
       }
 
@@ -81,7 +81,7 @@ export default function BudgetScreen({ navigation }) {
     AsyncStorage.getItem('access_token')
       .then(tok => {
         if (!tok) {
-          navigation.replace('Login');
+          navigation.getParent()?.replace('Login');
         } else {
           console.log('[BudgetScreen] token loaded');
           setToken(tok);
@@ -167,7 +167,7 @@ export default function BudgetScreen({ navigation }) {
 
       if (res.status === 401) {
         await AsyncStorage.removeItem('access_token');
-        navigation.replace('Login');
+        navigation.getParent()?.replace('Login');
         return;
       }
       if (!res.ok) {
@@ -237,7 +237,7 @@ export default function BudgetScreen({ navigation }) {
     return (
       <SafeAreaView style={styles.centered}>
         <Text style={styles.errorText}>{error}</Text>
-        <TouchableOpacity style={styles.retryButton} onPress={fetchData}>
+        <TouchableOpacity style={styles.retryButton} onPress={() => fetchData(token)}>
           <Text style={styles.retryButtonText}>Retry</Text>
         </TouchableOpacity>
       </SafeAreaView>

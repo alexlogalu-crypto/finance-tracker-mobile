@@ -90,7 +90,7 @@ export default function DashboardScreen({ navigation }) {
   if (loading) {
     return (
       <SafeAreaView style={styles.centered}>
-        <ActivityIndicator size="large" color="#111" />
+        <ActivityIndicator size="large" color="#4f6ef7" />
       </SafeAreaView>
     );
   }
