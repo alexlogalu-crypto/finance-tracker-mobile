@@ -102,7 +102,7 @@ export default function AddTransactionScreen({ navigation }) {
         const data = await res.json().catch(() => ({}));
         throw new Error(data?.detail || `Submission failed (${res.status})`);
       }
-      navigation.navigate('Dashboard', { refresh: Date.now() });
+      navigation.goBack();
     } catch (err) {
       Alert.alert('Error', err.message || 'An unexpected error occurred.');
     } finally {
@@ -146,7 +146,7 @@ export default function AddTransactionScreen({ navigation }) {
             <TextInput
               style={[styles.input, errors.amount && styles.inputError]}
               placeholder="0.00"
-              placeholderTextColor="#aaa"
+              placeholderTextColor="#a0aec0"
               value={amount}
               onChangeText={setAmount}
               keyboardType="decimal-pad"
@@ -158,7 +158,7 @@ export default function AddTransactionScreen({ navigation }) {
           <View style={styles.field}>
             <Text style={styles.label}>Category</Text>
             {catLoading ? (
-              <ActivityIndicator style={styles.catLoader} color="#111" />
+              <ActivityIndicator style={styles.catLoader} color="#4f6ef7" />
             ) : catError ? (
               <Text style={styles.errorText}>{catError}</Text>
             ) : (
@@ -181,7 +181,7 @@ export default function AddTransactionScreen({ navigation }) {
             <TextInput
               style={styles.input}
               placeholder="e.g. Grocery run"
-              placeholderTextColor="#aaa"
+              placeholderTextColor="#a0aec0"
               value={description}
               onChangeText={setDescription}
               returnKeyType="next"
@@ -194,7 +194,7 @@ export default function AddTransactionScreen({ navigation }) {
             <TextInput
               style={[styles.input, errors.date && styles.inputError]}
               placeholder="YYYY-MM-DD"
-              placeholderTextColor="#aaa"
+              placeholderTextColor="#a0aec0"
               value={date}
               onChangeText={setDate}
               keyboardType="numbers-and-punctuation"
@@ -263,7 +263,7 @@ export default function AddTransactionScreen({ navigation }) {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#1a1a2e',
   },
   flex: {
     flex: 1,
@@ -278,38 +278,38 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#333',
+    color: '#f0f4f8',
     marginBottom: 6,
   },
   optional: {
     fontWeight: '400',
-    color: '#888',
+    color: '#a0aec0',
   },
   input: {
     height: 48,
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: '#2a2a4a',
     borderRadius: 10,
     paddingHorizontal: 14,
     fontSize: 15,
-    color: '#111',
-    backgroundColor: '#fff',
+    color: '#f0f4f8',
+    backgroundColor: '#16213e',
   },
   inputError: {
-    borderColor: '#e53935',
+    borderColor: '#fc8181',
   },
   errorText: {
     fontSize: 12,
-    color: '#e53935',
+    color: '#fc8181',
     marginTop: 4,
   },
   toggle: {
     flexDirection: 'row',
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: '#2a2a4a',
     borderRadius: 10,
     overflow: 'hidden',
-    backgroundColor: '#fff',
+    backgroundColor: '#16213e',
   },
   toggleBtn: {
     flex: 1,
@@ -317,15 +317,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   toggleBtnActiveExpense: {
-    backgroundColor: '#c62828',
+    backgroundColor: '#fc8181',
   },
   toggleBtnActiveIncome: {
-    backgroundColor: '#2e7d32',
+    backgroundColor: '#48bb78',
   },
   toggleBtnText: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#666',
+    color: '#a0aec0',
   },
   toggleBtnTextActive: {
     color: '#fff',
@@ -337,15 +337,15 @@ const styles = StyleSheet.create({
   },
   pickerPlaceholder: {
     fontSize: 15,
-    color: '#aaa',
+    color: '#a0aec0',
   },
   pickerValue: {
     fontSize: 15,
-    color: '#111',
+    color: '#f0f4f8',
   },
   pickerChevron: {
     fontSize: 20,
-    color: '#aaa',
+    color: '#a0aec0',
     lineHeight: 22,
   },
   catLoader: {
@@ -353,7 +353,7 @@ const styles = StyleSheet.create({
   },
   submitBtn: {
     height: 50,
-    backgroundColor: '#111',
+    backgroundColor: '#4f6ef7',
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
@@ -370,10 +370,10 @@ const styles = StyleSheet.create({
   // Modal
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    backgroundColor: 'rgba(0,0,0,0.6)',
   },
   modalSheet: {
-    backgroundColor: '#fff',
+    backgroundColor: '#16213e',
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
     maxHeight: '55%',
@@ -386,17 +386,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    borderBottomColor: '#2a2a4a',
   },
   modalTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#111',
+    color: '#f0f4f8',
   },
   modalClose: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#111',
+    color: '#4f6ef7',
   },
   modalItem: {
     flexDirection: 'row',
@@ -407,16 +407,16 @@ const styles = StyleSheet.create({
   },
   modalItemText: {
     fontSize: 15,
-    color: '#111',
+    color: '#f0f4f8',
   },
   modalItemCheck: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#111',
+    color: '#4f6ef7',
   },
   modalSeparator: {
     height: 1,
-    backgroundColor: '#f0f0f0',
+    backgroundColor: '#2a2a4a',
     marginHorizontal: 20,
   },
 });
