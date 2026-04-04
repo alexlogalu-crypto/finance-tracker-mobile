@@ -68,10 +68,14 @@ export default function DashboardScreen({ navigation }) {
   function renderTransaction({ item }) {
     const isIncome = item.type === 'income';
     return (
-      <View style={styles.txRow}>
+      <TouchableOpacity
+        style={styles.txRow}
+        onPress={() => navigation.navigate('TransactionDetail', { transaction: item })}
+        activeOpacity={0.75}
+      >
         <View style={styles.txLeft}>
           <Text style={styles.txDescription} numberOfLines={1}>
-            {item.description || item.category || 'Transaction'}
+            {item.description || item.category?.name || 'Transaction'}
           </Text>
           <Text style={styles.txDate}>{item.date || ''}</Text>
         </View>
@@ -79,7 +83,7 @@ export default function DashboardScreen({ navigation }) {
           {isIncome ? '+' : '-'}
           {formatCurrency(item.amount)}
         </Text>
-      </View>
+      </TouchableOpacity>
     );
   }
 
@@ -105,7 +109,7 @@ export default function DashboardScreen({ navigation }) {
     );
   }
 
-  const net = (summary?.total_income ?? 0) - (summary?.total_expenses ?? 0);
+  const net = parseFloat(summary?.overview?.total_income ?? 0) - parseFloat(summary?.overview?.total_expenses ?? 0);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -130,11 +134,11 @@ export default function DashboardScreen({ navigation }) {
       <View style={styles.cards}>
         <View style={[styles.card, styles.cardIncome]}>
           <Text style={styles.cardLabel}>Income</Text>
-          <Text style={styles.cardValue}>{formatCurrency(summary?.total_income)}</Text>
+          <Text style={styles.cardValue}>{formatCurrency(summary?.overview?.total_income)}</Text>
         </View>
         <View style={[styles.card, styles.cardExpense]}>
           <Text style={styles.cardLabel}>Expenses</Text>
-          <Text style={styles.cardValue}>{formatCurrency(summary?.total_expenses)}</Text>
+          <Text style={styles.cardValue}>{formatCurrency(summary?.overview?.total_expenses)}</Text>
         </View>
         <View style={[styles.card, styles.cardNet, net < 0 && styles.cardNetNegative]}>
           <Text style={[styles.cardLabel, styles.cardLabelNet]}>Net Balance</Text>
@@ -167,13 +171,13 @@ export default function DashboardScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#1a1a2e',
   },
   centered: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#1a1a2e',
     paddingHorizontal: 28,
   },
   header: {
@@ -182,14 +186,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingVertical: 16,
-    backgroundColor: '#fff',
+    backgroundColor: '#16213e',
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    borderBottomColor: '#2a2a4a',
   },
   headerTitle: {
     fontSize: 22,
     fontWeight: '700',
-    color: '#111',
+    color: '#f0f4f8',
   },
   headerActions: {
     flexDirection: 'row',
@@ -200,7 +204,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#111',
+    backgroundColor: '#4f6ef7',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -213,7 +217,7 @@ const styles = StyleSheet.create({
   logoutText: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#e53935',
+    color: '#fc8181',
   },
   cards: {
     paddingHorizontal: 16,
@@ -229,43 +233,43 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   cardIncome: {
-    backgroundColor: '#e8f5e9',
+    backgroundColor: 'rgba(72,187,120,0.15)',
   },
   cardExpense: {
-    backgroundColor: '#fce4ec',
+    backgroundColor: 'rgba(252,129,129,0.15)',
   },
   cardNet: {
-    backgroundColor: '#111',
+    backgroundColor: '#4f6ef7',
   },
   cardNetNegative: {
-    backgroundColor: '#b71c1c',
+    backgroundColor: '#e53935',
   },
   cardLabel: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#444',
+    color: '#a0aec0',
   },
   cardLabelNet: {
-    color: '#ccc',
+    color: 'rgba(255,255,255,0.8)',
   },
   cardValue: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#111',
+    color: '#f0f4f8',
   },
   cardValueNet: {
     color: '#fff',
   },
   income: {
-    color: '#2e7d32',
+    color: '#48bb78',
   },
   expense: {
-    color: '#c62828',
+    color: '#fc8181',
   },
   sectionTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#111',
+    color: '#f0f4f8',
     paddingHorizontal: 20,
     paddingBottom: 8,
     paddingTop: 4,
@@ -278,7 +282,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: '#16213e',
     paddingVertical: 13,
     paddingHorizontal: 14,
     borderRadius: 10,
@@ -290,11 +294,11 @@ const styles = StyleSheet.create({
   txDescription: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#111',
+    color: '#f0f4f8',
   },
   txDate: {
     fontSize: 12,
-    color: '#888',
+    color: '#a0aec0',
     marginTop: 2,
   },
   txAmount: {
@@ -311,18 +315,18 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 14,
-    color: '#888',
+    color: '#a0aec0',
   },
   errorText: {
     fontSize: 15,
-    color: '#c62828',
+    color: '#fc8181',
     textAlign: 'center',
     marginBottom: 20,
   },
   retryButton: {
     height: 44,
     paddingHorizontal: 32,
-    backgroundColor: '#111',
+    backgroundColor: '#4f6ef7',
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
@@ -337,7 +341,7 @@ const styles = StyleSheet.create({
   },
   logoutLink: {
     fontSize: 14,
-    color: '#e53935',
+    color: '#fc8181',
     fontWeight: '500',
   },
 });
