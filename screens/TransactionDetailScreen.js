@@ -48,23 +48,30 @@ export default function TransactionDetailScreen({ route, navigation }) {
     setDeleting(true);
     try {
       const token = await AsyncStorage.getItem('access_token');
+      console.log('[Delete] token:', token ? 'present' : 'MISSING');
+      console.log('[Delete] url:', `${BASE}/transactions/${transaction.id}`);
       const res = await fetch(`${BASE}/transactions/${transaction.id}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       });
+      console.log('[Delete] status:', res.status);
       if (res.status === 401) {
         await AsyncStorage.removeItem('access_token');
         navigation.replace('Login');
         return;
       }
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data?.detail || `Delete failed (${res.status})`);
+        const text = await res.text().catch(() => '');
+        console.log('[Delete] error body:', text);
+        let detail;
+        try { detail = JSON.parse(text)?.detail; } catch {}
+        throw new Error(detail || `Delete failed (${res.status})`);
       }
       Alert.alert('Transaction deleted', '', [
         { text: 'OK', onPress: () => navigation.goBack() },
       ]);
     } catch (err) {
+      console.log('[Delete] caught error:', err.message);
       Alert.alert('Error', err.message || 'Failed to delete transaction.');
     } finally {
       setDeleting(false);
