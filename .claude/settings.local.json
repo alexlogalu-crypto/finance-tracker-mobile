@@ -1,7 +1,11 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "Bash(C:/Users/alexl/.claude/plugins/cache/claude-plugins-official/superpowers/5.0.6/scripts/start-server.sh --project-dir \"C:/Users/alexl/OneDrive/Desktop/Ai/Projects/Finance Tracker App/mobile\")",
+      "Bash(bash \"C:/Users/alexl/.claude/plugins/cache/claude-plugins-official/superpowers/5.0.6/skills/brainstorming/scripts/start-server.sh\" --project-dir \"C:/Users/alexl/OneDrive/Desktop/Ai/Projects/Finance Tracker App/mobile\")",
+      "Bash(xargs cat:*)",
+      "Bash(npx expo:*)"
     ]
   }
 }

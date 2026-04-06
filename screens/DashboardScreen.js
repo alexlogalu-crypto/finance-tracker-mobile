@@ -9,16 +9,19 @@ import {
   ActivityIndicator,
   SafeAreaView,
   Alert,
+  RefreshControl,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function DashboardScreen({ navigation }) {
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
 
-  const fetchSummary = useCallback(async () => {
-    setLoading(true);
+  const fetchSummary = useCallback(async (isRefresh = false) => {
+    if (isRefresh) setRefreshing(true);
+    else setLoading(true);
     setError(null);
     try {
       const token = await AsyncStorage.getItem('access_token');
@@ -40,6 +43,7 @@ export default function DashboardScreen({ navigation }) {
       setError(err.message || 'Failed to load summary.');
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   }, [navigation]);
 
@@ -158,10 +162,23 @@ export default function DashboardScreen({ navigation }) {
           renderItem={renderTransaction}
           contentContainerStyle={styles.listContent}
           ItemSeparatorComponent={() => <View style={styles.separator} />}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={() => fetchSummary(true)}
+              tintColor="#4f6ef7"
+            />
+          }
         />
       ) : (
         <View style={styles.emptyContainer}>
-          <Text style={styles.emptyText}>No recent transactions.</Text>
+          <Text style={styles.emptyText}>No recent transactions</Text>
+          <TouchableOpacity
+            style={styles.emptyButton}
+            onPress={() => navigation.navigate('AddTransaction')}
+          >
+            <Text style={styles.emptyButtonText}>Add Transaction</Text>
+          </TouchableOpacity>
         </View>
       )}
     </SafeAreaView>
@@ -309,13 +326,27 @@ const styles = StyleSheet.create({
     height: 8,
   },
   emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
+    paddingTop: 40,
     alignItems: 'center',
+    paddingHorizontal: 24,
   },
   emptyText: {
-    fontSize: 14,
+    fontSize: 15,
     color: '#a0aec0',
+    marginBottom: 20,
+  },
+  emptyButton: {
+    height: 44,
+    paddingHorizontal: 24,
+    backgroundColor: '#4f6ef7',
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyButtonText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '600',
   },
   errorText: {
     fontSize: 15,

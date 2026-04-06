@@ -112,7 +112,13 @@ export default function TransactionsScreen({ navigation }) {
         ItemSeparatorComponent={() => <View style={styles.separator} />}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>No transactions yet.</Text>
+            <Text style={styles.emptyText}>No transactions yet</Text>
+            <TouchableOpacity
+              style={styles.emptyButton}
+              onPress={() => navigation.navigate('AddTransaction')}
+            >
+              <Text style={styles.emptyButtonText}>Add your first transaction</Text>
+            </TouchableOpacity>
           </View>
         }
         refreshControl={
@@ -193,13 +199,27 @@ const styles = StyleSheet.create({
     height: 8,
   },
   emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
+    paddingTop: 80,
     alignItems: 'center',
+    paddingHorizontal: 24,
   },
   emptyText: {
-    fontSize: 14,
+    fontSize: 15,
     color: '#a0aec0',
+    marginBottom: 20,
+  },
+  emptyButton: {
+    height: 44,
+    paddingHorizontal: 24,
+    backgroundColor: '#4f6ef7',
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyButtonText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '600',
   },
   errorText: {
     fontSize: 15,

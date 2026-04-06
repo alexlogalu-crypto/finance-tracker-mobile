@@ -260,7 +260,10 @@ export default function BudgetScreen({ navigation }) {
 
       {budgets.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <Text style={styles.emptyText}>No budgets set. Tap + to add one.</Text>
+          <Text style={styles.emptyText}>No budgets set</Text>
+          <TouchableOpacity style={styles.emptyButton} onPress={openAddModal}>
+            <Text style={styles.emptyButtonText}>Create a budget</Text>
+          </TouchableOpacity>
         </View>
       ) : (
         <FlatList
@@ -441,10 +444,25 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    paddingHorizontal: 24,
   },
   emptyText: {
-    fontSize: 14,
+    fontSize: 15,
     color: '#a0aec0',
+    marginBottom: 20,
+  },
+  emptyButton: {
+    height: 44,
+    paddingHorizontal: 24,
+    backgroundColor: '#4f6ef7',
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyButtonText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '600',
   },
   errorText: {
     fontSize: 15,

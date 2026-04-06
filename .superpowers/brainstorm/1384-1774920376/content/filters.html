@@ -1,0 +1,40 @@
+<h2>What filtering/sorting should the history screen have?</h2>
+<p class="subtitle">Select all that you'd want — you can pick multiple</p>
+
+<div class="options" data-multiselect>
+  <div class="option" data-choice="type" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Filter by type</h3>
+      <p>Toggle to show only income, only expenses, or all</p>
+    </div>
+  </div>
+  <div class="option" data-choice="date" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Filter by month / date range</h3>
+      <p>Pick a month or a custom date range to narrow down results</p>
+    </div>
+  </div>
+  <div class="option" data-choice="category" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>Filter by category</h3>
+      <p>Tap a category chip to show only transactions in that category</p>
+    </div>
+  </div>
+  <div class="option" data-choice="sort" onclick="toggleSelect(this)">
+    <div class="letter">D</div>
+    <div class="content">
+      <h3>Sort options</h3>
+      <p>Sort by date (newest/oldest) or by amount (high/low)</p>
+    </div>
+  </div>
+  <div class="option" data-choice="none" onclick="toggleSelect(this)">
+    <div class="letter">E</div>
+    <div class="content">
+      <h3>No filters — just show everything</h3>
+      <p>Simple flat list, newest first, no controls</p>
+    </div>
+  </div>
+</div>

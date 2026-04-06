@@ -1,0 +1,38 @@
+<h2>3 approaches for editing transactions</h2>
+<p class="subtitle">The list + pagination + category filter are the same in all three — the difference is how edit/delete works</p>
+
+<div class="options">
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Extend AddTransactionScreen for edit</h3>
+      <p>Tap a transaction → navigates to the existing Add Transaction screen, pre-filled with that transaction's data. A Delete button is added at the bottom. On save it calls PATCH instead of POST.</p>
+      <div class="pros-cons" style="margin-top:10px">
+        <div class="pros"><h4>Pros</h4><ul><li>No duplicated form code</li><li>Familiar full-screen form UX</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>AddTransactionScreen gets more complex (create vs edit mode)</li></ul></div>
+      </div>
+    </div>
+  </div>
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Bottom sheet modal on the list ⭐ Recommended</h3>
+      <p>Tap a transaction → a modal slides up from the bottom with the edit form inline. Delete button inside the modal. User never leaves the list. Matches how BudgetScreen already handles editing.</p>
+      <div class="pros-cons" style="margin-top:10px">
+        <div class="pros"><h4>Pros</h4><ul><li>Consistent with existing BudgetScreen pattern</li><li>User stays on the list, context preserved</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>Slightly more complex modal layout</li></ul></div>
+      </div>
+    </div>
+  </div>
+  <div class="option" data-choice="c" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>Swipe to delete + tap to edit screen</h3>
+      <p>Swipe a row left to reveal a Delete button. Tap the row to open a new EditTransactionScreen. Two separate interactions for edit vs delete.</p>
+      <div class="pros-cons" style="margin-top:10px">
+        <div class="pros"><h4>Pros</h4><ul><li>Familiar mobile swipe pattern</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>Requires extra swipe gesture library or custom implementation</li><li>New duplicate screen for editing</li></ul></div>
+      </div>
+    </div>
+  </div>
+</div>

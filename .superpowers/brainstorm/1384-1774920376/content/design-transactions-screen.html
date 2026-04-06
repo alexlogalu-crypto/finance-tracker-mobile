@@ -1,0 +1,149 @@
+<h2>Transactions Screen — Full Design</h2>
+<p class="subtitle">Does this layout look right? Let me know what to change.</p>
+
+<div class="split">
+  <!-- Main list view -->
+  <div class="mockup">
+    <div class="mockup-header">Transactions Tab (main view)</div>
+    <div class="mockup-body" style="padding:0;font-family:sans-serif;font-size:13px">
+
+      <!-- Header -->
+      <div style="padding:14px 16px;background:#fff;border-bottom:1px solid #eee;display:flex;justify-content:space-between;align-items:center">
+        <span style="font-size:18px;font-weight:700;color:#111">Transactions</span>
+      </div>
+
+      <!-- Category filter chips -->
+      <div style="padding:10px 12px;background:#f5f5f5;display:flex;gap:8px;overflow-x:auto;white-space:nowrap;border-bottom:1px solid #eee">
+        <span style="background:#111;color:#fff;border-radius:20px;padding:5px 14px;font-size:12px;font-weight:600">All</span>
+        <span style="background:#fff;border:1px solid #ddd;border-radius:20px;padding:5px 14px;font-size:12px;color:#555">🍔 Food</span>
+        <span style="background:#fff;border:1px solid #ddd;border-radius:20px;padding:5px 14px;font-size:12px;color:#555">🚗 Transport</span>
+        <span style="background:#fff;border:1px solid #ddd;border-radius:20px;padding:5px 14px;font-size:12px;color:#555">💰 Salary</span>
+        <span style="background:#fff;border:1px solid #ddd;border-radius:20px;padding:5px 14px;font-size:12px;color:#555">🏠 Rent</span>
+      </div>
+
+      <!-- Transaction rows -->
+      <div style="padding:10px 12px;display:flex;flex-direction:column;gap:8px">
+
+        <div style="background:#fff;border-radius:10px;padding:12px 14px;display:flex;justify-content:space-between;align-items:center">
+          <div>
+            <div style="font-weight:600;color:#111">Grocery run</div>
+            <div style="color:#888;font-size:11px;margin-top:2px">🍔 Food · 2026-03-28</div>
+          </div>
+          <span style="color:#c62828;font-weight:700">-$54.20</span>
+        </div>
+
+        <div style="background:#fff;border-radius:10px;padding:12px 14px;display:flex;justify-content:space-between;align-items:center">
+          <div>
+            <div style="font-weight:600;color:#111">Monthly salary</div>
+            <div style="color:#888;font-size:11px;margin-top:2px">💰 Salary · 2026-03-25</div>
+          </div>
+          <span style="color:#2e7d32;font-weight:700">+$3,200.00</span>
+        </div>
+
+        <div style="background:#fff;border-radius:10px;padding:12px 14px;display:flex;justify-content:space-between;align-items:center">
+          <div>
+            <div style="font-weight:600;color:#111">Uber</div>
+            <div style="color:#888;font-size:11px;margin-top:2px">🚗 Transport · 2026-03-24</div>
+          </div>
+          <span style="color:#c62828;font-weight:700">-$12.50</span>
+        </div>
+
+        <div style="background:#fff;border-radius:10px;padding:12px 14px;display:flex;justify-content:space-between;align-items:center">
+          <div>
+            <div style="font-weight:600;color:#111">Rent</div>
+            <div style="color:#888;font-size:11px;margin-top:2px">🏠 Rent · 2026-03-01</div>
+          </div>
+          <span style="color:#c62828;font-weight:700">-$1,200.00</span>
+        </div>
+
+        <!-- Load more -->
+        <div style="margin-top:4px;background:#eee;border-radius:10px;padding:12px;text-align:center;color:#555;font-weight:600;font-size:13px">
+          Load more (16 remaining)
+        </div>
+      </div>
+
+      <!-- Bottom tab bar -->
+      <div style="position:relative;bottom:0;border-top:1px solid #eee;display:flex;background:#fff;padding:8px 0 4px">
+        <div style="flex:1;text-align:center;color:#aaa;font-size:11px">◈<br>Dashboard</div>
+        <div style="flex:1;text-align:center;color:#111;font-size:11px;font-weight:700">☰<br><strong>Transactions</strong></div>
+        <div style="flex:1;text-align:center;color:#aaa;font-size:11px">◉<br>Budget</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit modal -->
+  <div class="mockup">
+    <div class="mockup-header">Edit modal (tap any row)</div>
+    <div class="mockup-body" style="padding:0;font-family:sans-serif;font-size:13px">
+
+      <!-- Dimmed background -->
+      <div style="background:#999;padding:30px 16px 0;color:#bbb;font-size:12px;text-align:center;min-height:80px">
+        (list underneath, dimmed)
+      </div>
+
+      <!-- Modal sheet -->
+      <div style="background:#fff;border-radius:16px 16px 0 0;padding:16px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;border-bottom:1px solid #eee;padding-bottom:12px">
+          <span style="font-size:16px;font-weight:700;color:#111">Edit Transaction</span>
+          <span style="font-size:15px;font-weight:600;color:#111">✕</span>
+        </div>
+
+        <!-- Type toggle -->
+        <div style="display:flex;border:1px solid #ddd;border-radius:10px;overflow:hidden;margin-bottom:14px">
+          <div style="flex:1;padding:10px;text-align:center;background:#c62828;color:#fff;font-weight:600;font-size:13px">Expense</div>
+          <div style="flex:1;padding:10px;text-align:center;background:#fff;color:#888;font-size:13px">Income</div>
+        </div>
+
+        <!-- Amount -->
+        <div style="margin-bottom:12px">
+          <div style="font-size:12px;font-weight:600;color:#333;margin-bottom:4px">Amount</div>
+          <div style="border:1px solid #ddd;border-radius:10px;padding:10px 14px;color:#111;background:#fff">54.20</div>
+        </div>
+
+        <!-- Category -->
+        <div style="margin-bottom:12px">
+          <div style="font-size:12px;font-weight:600;color:#333;margin-bottom:4px">Category</div>
+          <div style="border:1px solid #ddd;border-radius:10px;padding:10px 14px;color:#111;background:#fff;display:flex;justify-content:space-between">
+            <span>🍔 Food</span><span style="color:#aaa">›</span>
+          </div>
+        </div>
+
+        <!-- Description -->
+        <div style="margin-bottom:12px">
+          <div style="font-size:12px;font-weight:600;color:#333;margin-bottom:4px">Description</div>
+          <div style="border:1px solid #ddd;border-radius:10px;padding:10px 14px;color:#111;background:#fff">Grocery run</div>
+        </div>
+
+        <!-- Date -->
+        <div style="margin-bottom:16px">
+          <div style="font-size:12px;font-weight:600;color:#333;margin-bottom:4px">Date</div>
+          <div style="border:1px solid #ddd;border-radius:10px;padding:10px 14px;color:#111;background:#fff">2026-03-28</div>
+        </div>
+
+        <!-- Save button -->
+        <div style="background:#111;border-radius:10px;padding:13px;text-align:center;color:#fff;font-weight:700;font-size:15px;margin-bottom:10px">
+          Save Changes
+        </div>
+
+        <!-- Delete button -->
+        <div style="background:#fff;border:1.5px solid #e53935;border-radius:10px;padding:13px;text-align:center;color:#e53935;font-weight:700;font-size:15px">
+          Delete Transaction
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top:16px">
+  <h3>Dashboard change</h3>
+  <div class="mockup">
+    <div class="mockup-header">Dashboard — "Recent Transactions" section header</div>
+    <div class="mockup-body" style="font-family:sans-serif;font-size:13px;padding:12px 16px">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <span style="font-size:15px;font-weight:700;color:#111">Recent Transactions</span>
+        <span style="font-size:13px;font-weight:600;color:#111">See all →</span>
+      </div>
+      <div style="color:#aaa;font-size:12px;margin-top:4px">(navigates to the Transactions tab)</div>
+    </div>
+  </div>
+</div>
