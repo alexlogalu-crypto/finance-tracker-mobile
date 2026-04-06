@@ -67,9 +67,8 @@ export default function TransactionDetailScreen({ route, navigation }) {
         try { detail = JSON.parse(text)?.detail; } catch {}
         throw new Error(detail || `Delete failed (${res.status})`);
       }
-      Alert.alert('Transaction deleted', '', [
-        { text: 'OK', onPress: () => navigation.goBack() },
-      ]);
+      navigation.goBack();
+      Alert.alert('Transaction deleted', '');
     } catch (err) {
       console.log('[Delete] caught error:', err.message);
       Alert.alert('Error', err.message || 'Failed to delete transaction.');
@@ -117,7 +116,7 @@ export default function TransactionDetailScreen({ route, navigation }) {
       <View style={styles.footer}>
         <TouchableOpacity
           style={[styles.deleteBtn, deleting && styles.deleteBtnDisabled]}
-          onPress={() => { console.log('[Delete] button pressed'); confirmDelete(); }}
+          onPress={handleDelete}
           disabled={deleting}
           activeOpacity={0.85}
         >
