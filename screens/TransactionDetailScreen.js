@@ -117,7 +117,7 @@ export default function TransactionDetailScreen({ route, navigation }) {
       <View style={styles.footer}>
         <TouchableOpacity
           style={[styles.deleteBtn, deleting && styles.deleteBtnDisabled]}
-          onPress={handleDelete}
+          onPress={() => { console.log('[Delete] button pressed'); confirmDelete(); }}
           disabled={deleting}
           activeOpacity={0.85}
         >
