@@ -1,20 +1,23 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { Text } from 'react-native';
+import { Text, View, ActivityIndicator } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import LoginScreen from './screens/LoginScreen';
 import DashboardScreen from './screens/DashboardScreen';
 import BudgetScreen from './screens/BudgetScreen';
 import AddTransactionScreen from './screens/AddTransactionScreen';
 import TransactionsScreen from './screens/TransactionsScreen';
 import TransactionDetailScreen from './screens/TransactionDetailScreen';
+import GoalsScreen from './screens/GoalsScreen';
+import OnboardingScreen from './screens/OnboardingScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
 function TabIcon({ label, focused }) {
-  const icons = { Dashboard: '◈', Transactions: '≡', Budget: '◉' };
+  const icons = { Dashboard: '◈', Transactions: '≡', Budget: '◉', Goals: '◎' };
   return (
     <Text style={{ fontSize: 20, color: focused ? '#4f6ef7' : '#a0aec0' }}>
       {icons[label] ?? '●'}
@@ -46,14 +49,32 @@ function MainTabs() {
       <Tab.Screen name="Dashboard" component={DashboardScreen} />
       <Tab.Screen name="Transactions" component={TransactionsScreen} />
       <Tab.Screen name="Budget" component={BudgetScreen} />
+      <Tab.Screen name="Goals" component={GoalsScreen} />
     </Tab.Navigator>
   );
 }
 
 export default function App() {
+  const [initialRoute, setInitialRoute] = useState(null);
+
+  useEffect(() => {
+    AsyncStorage.getItem('onboarding_complete').then((val) => {
+      setInitialRoute(val === 'true' ? 'Login' : 'Onboarding');
+    });
+  }, []);
+
+  if (!initialRoute) {
+    return (
+      <View style={{ flex: 1, backgroundColor: '#1a1a2e', justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color="#4f6ef7" />
+      </View>
+    );
+  }
+
   return (
     <NavigationContainer>
-      <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Navigator initialRouteName={initialRoute} screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="Onboarding" component={OnboardingScreen} />
         <Stack.Screen name="Login" component={LoginScreen} />
         <Stack.Screen name="Main" component={MainTabs} />
         <Stack.Screen

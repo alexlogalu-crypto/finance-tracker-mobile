@@ -15,6 +15,7 @@ import {
   KeyboardAvoidingView,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { recordTransaction } from '../utils/streak';
 
 function today() {
   return new Date().toISOString().split('T')[0];
@@ -102,6 +103,7 @@ export default function AddTransactionScreen({ navigation }) {
         const data = await res.json().catch(() => ({}));
         throw new Error(data?.detail || `Submission failed (${res.status})`);
       }
+      await recordTransaction();
       navigation.goBack();
     } catch (err) {
       Alert.alert('Error', err.message || 'An unexpected error occurred.');

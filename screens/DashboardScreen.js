@@ -12,12 +12,14 @@ import {
   RefreshControl,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getStreak } from '../utils/streak';
 
 export default function DashboardScreen({ navigation }) {
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
+  const [streak, setStreak] = useState(0);
 
   const fetchSummary = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
@@ -50,6 +52,7 @@ export default function DashboardScreen({ navigation }) {
   useFocusEffect(
     useCallback(() => {
       fetchSummary();
+      getStreak().then(setStreak);
     }, [fetchSummary])
   );
 
@@ -134,6 +137,13 @@ export default function DashboardScreen({ navigation }) {
         </View>
       </View>
 
+      {/* Streak pill */}
+      {streak >= 2 && (
+        <View style={styles.streakPill}>
+          <Text style={styles.streakText}>🔥 {streak} day streak</Text>
+        </View>
+      )}
+
       {/* Summary cards */}
       <View style={styles.cards}>
         <View style={[styles.card, styles.cardIncome]}>
@@ -152,6 +162,30 @@ export default function DashboardScreen({ navigation }) {
           </Text>
         </View>
       </View>
+
+      {/* Spending Breakdown */}
+      {summary?.spending_by_category?.length > 0 && (
+        <View style={styles.breakdownContainer}>
+          <Text style={styles.sectionTitle}>Spending Breakdown</Text>
+          {summary.spending_by_category.map((item, index) => (
+            <View key={index} style={styles.breakdownRow}>
+              <View style={[styles.dot, { backgroundColor: item.color }]} />
+              <Text style={styles.breakdownCategory} numberOfLines={1}>
+                {item.category_name}
+              </Text>
+              <View style={styles.barTrack}>
+                <View
+                  style={[
+                    styles.barFill,
+                    { width: `${item.percentage_of_expenses}%`, backgroundColor: item.color },
+                  ]}
+                />
+              </View>
+              <Text style={styles.breakdownAmount}>${parseFloat(item.total).toFixed(2)}</Text>
+            </View>
+          ))}
+        </View>
+      )}
 
       {/* Recent transactions */}
       <Text style={styles.sectionTitle}>Recent Transactions</Text>
@@ -235,6 +269,21 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
     color: '#fc8181',
+  },
+  streakPill: {
+    alignSelf: 'flex-start',
+    marginHorizontal: 20,
+    marginTop: 10,
+    marginBottom: 2,
+    backgroundColor: '#2a2a4a',
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+  },
+  streakText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#f97316',
   },
   cards: {
     paddingHorizontal: 16,
@@ -374,5 +423,46 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#fc8181',
     fontWeight: '500',
+  },
+  breakdownContainer: {
+    paddingHorizontal: 16,
+    paddingBottom: 8,
+  },
+  breakdownRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+    gap: 8,
+  },
+  dot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    flexShrink: 0,
+  },
+  breakdownCategory: {
+    fontSize: 13,
+    color: '#f0f4f8',
+    width: 90,
+    flexShrink: 0,
+  },
+  barTrack: {
+    flex: 1,
+    height: 8,
+    backgroundColor: '#2a2a4a',
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  barFill: {
+    height: '100%',
+    borderRadius: 4,
+  },
+  breakdownAmount: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#f0f4f8',
+    width: 72,
+    textAlign: 'right',
+    flexShrink: 0,
   },
 });
