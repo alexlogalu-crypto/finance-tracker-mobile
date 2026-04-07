@@ -16,6 +16,7 @@ import {
   Platform,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useBudgetAlert } from '../context/BudgetAlertContext';
 
 const BASE = 'https://finance-tracker-production-e13e.up.railway.app/api/v1';
 
@@ -26,6 +27,8 @@ export default function BudgetScreen({ navigation }) {
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [performanceMap, setPerformanceMap] = useState({});
+  const { setAlertCount } = useBudgetAlert();
 
   // Modal state
   const [modalVisible, setModalVisible] = useState(false);
@@ -40,9 +43,10 @@ export default function BudgetScreen({ navigation }) {
     setError(null);
     try {
       const headers = { Authorization: `Bearer ${tok}`, 'Content-Type': 'application/json' };
-      const [budgetsRes, categoriesRes] = await Promise.all([
+      const [budgetsRes, categoriesRes, summaryRes] = await Promise.all([
         fetch(`${BASE}/budgets`, { headers }),
         fetch(`${BASE}/categories`, { headers }),
+        fetch(`${BASE}/summary`, { headers }),
       ]);
 
       if (budgetsRes.status === 401 || categoriesRes.status === 401) {
@@ -66,8 +70,20 @@ export default function BudgetScreen({ navigation }) {
       ]);
 
       console.log('[BudgetScreen] budgets raw data:', JSON.stringify(budgetsData));
-      setBudgets(Array.isArray(budgetsData) ? budgetsData : (budgetsData.items ?? []));
+      const budgetList = Array.isArray(budgetsData) ? budgetsData : (budgetsData.items ?? []);
+      setBudgets(budgetList);
       setCategories([...(categoriesData.system ?? []), ...(categoriesData.custom ?? [])]);
+
+      const summaryData = summaryRes.ok ? await summaryRes.json() : null;
+      const perfMap = {};
+      for (const perf of (summaryData?.budget_performance ?? [])) {
+        if (perf.category?.id) perfMap[perf.category.id] = perf;
+      }
+      setPerformanceMap(perfMap);
+      const alertCount = Object.values(perfMap).filter(
+        (b) => (b.percentage_used ?? 0) >= 80
+      ).length;
+      setAlertCount(alertCount);
     } catch (err) {
       console.error('[BudgetScreen] fetchData error:', err);
       setError(err.message || 'Failed to load budgets.');
@@ -190,18 +206,20 @@ export default function BudgetScreen({ navigation }) {
   }
 
   function renderBudget({ item }) {
-    const spent = item.spent ?? 0;
-    const total = item.amount ?? 0;
-    const ratio = total > 0 ? Math.min(spent / total, 1) : 0;
-    const overBudget = spent > total;
-    const categoryName =
-      item.category_name ?? item.category?.name ?? `Category ${item.category_id}`;
+    const perf = performanceMap[item.category?.id];
+    const spent = parseFloat(perf?.spent_amount ?? 0);
+    const total = parseFloat(perf?.budget_amount ?? item.amount ?? 0);
+    const pct = perf?.percentage_used ?? (total > 0 ? (spent / total) * 100 : 0);
+    const ratio = Math.min(pct / 100, 1);
+    const remaining = parseFloat(perf?.remaining ?? (total - spent));
+    const categoryName = item.category?.name ?? `Category`;
+    const barColor = pct > 100 ? '#fc8181' : pct >= 80 ? '#f97316' : '#4f6ef7';
 
     return (
       <TouchableOpacity style={styles.budgetCard} onPress={() => openEditModal(item)} activeOpacity={0.8}>
         <View style={styles.budgetHeader}>
           <Text style={styles.budgetCategory}>{categoryName}</Text>
-          <Text style={[styles.budgetMeta, overBudget && styles.overBudgetText]}>
+          <Text style={[styles.budgetMeta, pct > 100 && styles.overBudgetText]}>
             {formatCurrency(spent)} / {formatCurrency(total)}
           </Text>
         </View>
@@ -210,16 +228,15 @@ export default function BudgetScreen({ navigation }) {
           <View
             style={[
               styles.progressFill,
-              { width: `${Math.round(ratio * 100)}%` },
-              overBudget ? styles.progressOver : styles.progressNormal,
+              { width: `${Math.round(ratio * 100)}%`, backgroundColor: barColor },
             ]}
           />
         </View>
 
-        <Text style={[styles.budgetRemaining, overBudget && styles.overBudgetText]}>
-          {overBudget
-            ? `${formatCurrency(spent - total)} over budget`
-            : `${formatCurrency(total - spent)} remaining`}
+        <Text style={[styles.budgetRemaining, pct > 100 && styles.overBudgetText]}>
+          {pct > 100
+            ? `${formatCurrency(Math.abs(remaining))} over budget`
+            : `${formatCurrency(remaining)} remaining`}
         </Text>
       </TouchableOpacity>
     );

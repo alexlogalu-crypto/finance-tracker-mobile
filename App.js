@@ -4,6 +4,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Text, View, ActivityIndicator } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { BudgetAlertProvider, useBudgetAlert } from './context/BudgetAlertContext';
 import LoginScreen from './screens/LoginScreen';
 import DashboardScreen from './screens/DashboardScreen';
 import BudgetScreen from './screens/BudgetScreen';
@@ -26,6 +27,7 @@ function TabIcon({ label, focused }) {
 }
 
 function MainTabs() {
+  const { alertCount } = useBudgetAlert();
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -48,7 +50,11 @@ function MainTabs() {
     >
       <Tab.Screen name="Dashboard" component={DashboardScreen} />
       <Tab.Screen name="Transactions" component={TransactionsScreen} />
-      <Tab.Screen name="Budget" component={BudgetScreen} />
+      <Tab.Screen
+        name="Budget"
+        component={BudgetScreen}
+        options={{ tabBarBadge: alertCount > 0 ? alertCount : undefined }}
+      />
       <Tab.Screen name="Goals" component={GoalsScreen} />
     </Tab.Navigator>
   );
@@ -72,6 +78,7 @@ export default function App() {
   }
 
   return (
+    <BudgetAlertProvider>
     <NavigationContainer>
       <Stack.Navigator initialRouteName={initialRoute} screenOptions={{ headerShown: false }}>
         <Stack.Screen name="Onboarding" component={OnboardingScreen} />
@@ -103,5 +110,6 @@ export default function App() {
         />
       </Stack.Navigator>
     </NavigationContainer>
+    </BudgetAlertProvider>
   );
 }

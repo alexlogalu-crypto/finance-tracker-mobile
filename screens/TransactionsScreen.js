@@ -9,16 +9,25 @@ import {
   ActivityIndicator,
   SafeAreaView,
   RefreshControl,
+  TextInput,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const BASE = 'https://finance-tracker-production-e13e.up.railway.app/api/v1';
+
+const TYPE_FILTERS = [
+  { label: 'All', value: 'all' },
+  { label: 'Income', value: 'income' },
+  { label: 'Expenses', value: 'expense' },
+];
 
 export default function TransactionsScreen({ navigation }) {
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
+  const [searchText, setSearchText] = useState('');
+  const [typeFilter, setTypeFilter] = useState('all');
 
   const fetchTransactions = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
@@ -55,6 +64,16 @@ export default function TransactionsScreen({ navigation }) {
     }, [fetchTransactions])
   );
 
+  const filteredTransactions = transactions.filter((item) => {
+    const matchesType = typeFilter === 'all' || item.type === typeFilter;
+    const query = searchText.toLowerCase();
+    const matchesSearch =
+      !query ||
+      (item.description || '').toLowerCase().includes(query) ||
+      (item.category?.name || '').toLowerCase().includes(query);
+    return matchesType && matchesSearch;
+  });
+
   function formatCurrency(amount) {
     return `$${Math.abs(parseFloat(amount) || 0).toFixed(2)}`;
   }
@@ -80,6 +99,8 @@ export default function TransactionsScreen({ navigation }) {
     );
   }
 
+  const isFiltering = searchText.length > 0 || typeFilter !== 'all';
+
   if (loading) {
     return (
       <SafeAreaView style={styles.centered}>
@@ -104,22 +125,58 @@ export default function TransactionsScreen({ navigation }) {
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Transactions</Text>
       </View>
+
+      {/* Search bar */}
+      <View style={styles.searchContainer}>
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Search transactions..."
+          placeholderTextColor="#6b7280"
+          value={searchText}
+          onChangeText={setSearchText}
+          clearButtonMode="while-editing"
+          autoCorrect={false}
+        />
+      </View>
+
+      {/* Filter pills */}
+      <View style={styles.pillRow}>
+        {TYPE_FILTERS.map((f) => (
+          <TouchableOpacity
+            key={f.value}
+            style={[styles.pill, typeFilter === f.value && styles.pillActive]}
+            onPress={() => setTypeFilter(f.value)}
+            activeOpacity={0.75}
+          >
+            <Text style={[styles.pillText, typeFilter === f.value && styles.pillTextActive]}>
+              {f.label}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
       <FlatList
-        data={transactions}
+        data={filteredTransactions}
         keyExtractor={(item, index) => item.id?.toString() ?? index.toString()}
         renderItem={renderItem}
         contentContainerStyle={styles.listContent}
         ItemSeparatorComponent={() => <View style={styles.separator} />}
         ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>No transactions yet</Text>
-            <TouchableOpacity
-              style={styles.emptyButton}
-              onPress={() => navigation.navigate('AddTransaction')}
-            >
-              <Text style={styles.emptyButtonText}>Add your first transaction</Text>
-            </TouchableOpacity>
-          </View>
+          isFiltering ? (
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyText}>No transactions match your search</Text>
+            </View>
+          ) : (
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyText}>No transactions yet</Text>
+              <TouchableOpacity
+                style={styles.emptyButton}
+                onPress={() => navigation.navigate('AddTransaction')}
+              >
+                <Text style={styles.emptyButtonText}>Add your first transaction</Text>
+              </TouchableOpacity>
+            </View>
+          )
         }
         refreshControl={
           <RefreshControl
@@ -157,9 +214,47 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#f0f4f8',
   },
+  searchContainer: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 8,
+  },
+  searchInput: {
+    backgroundColor: '#16213e',
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    fontSize: 14,
+    color: '#f0f4f8',
+    borderWidth: 1,
+    borderColor: '#2a2a4a',
+  },
+  pillRow: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    paddingBottom: 10,
+    gap: 8,
+  },
+  pill: {
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    borderRadius: 20,
+    backgroundColor: '#2a2a4a',
+  },
+  pillActive: {
+    backgroundColor: '#4f6ef7',
+  },
+  pillText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#a0aec0',
+  },
+  pillTextActive: {
+    color: '#fff',
+  },
   listContent: {
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 4,
     paddingBottom: 24,
   },
   txRow: {

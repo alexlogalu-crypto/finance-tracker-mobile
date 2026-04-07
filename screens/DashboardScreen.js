@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import {
   View,
@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getStreak } from '../utils/streak';
+import { useBudgetAlert } from '../context/BudgetAlertContext';
 
 export default function DashboardScreen({ navigation }) {
   const [summary, setSummary] = useState(null);
@@ -20,6 +21,7 @@ export default function DashboardScreen({ navigation }) {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
   const [streak, setStreak] = useState(0);
+  const { setAlertCount } = useBudgetAlert();
 
   const fetchSummary = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
@@ -41,6 +43,8 @@ export default function DashboardScreen({ navigation }) {
       }
       const data = await res.json();
       setSummary(data);
+      console.log('spending_by_category:', JSON.stringify(data.spending_by_category));
+      console.log('budget_performance:', JSON.stringify(data.budget_performance));
     } catch (err) {
       setError(err.message || 'Failed to load summary.');
     } finally {
@@ -67,6 +71,18 @@ export default function DashboardScreen({ navigation }) {
       { text: 'Log Out', style: 'destructive', onPress: handleLogout },
     ]);
   }
+
+  const budgetAlerts = useMemo(
+    () =>
+      (summary?.budget_performance ?? []).filter(
+        (item) => parseFloat(item.percentage_used) >= 80
+      ),
+    [summary]
+  );
+
+  useEffect(() => {
+    setAlertCount(budgetAlerts.length);
+  }, [budgetAlerts.length, setAlertCount]);
 
   function formatCurrency(amount) {
     return `$${Math.abs(amount ?? 0).toFixed(2)}`;
@@ -167,9 +183,11 @@ export default function DashboardScreen({ navigation }) {
       {summary?.spending_by_category?.length > 0 && (
         <View style={styles.breakdownContainer}>
           <Text style={styles.sectionTitle}>Spending Breakdown</Text>
-          {summary.spending_by_category.map((item, index) => (
+          {summary.spending_by_category.map((item, index) => {
+            const barPct = Math.min(Math.max(parseFloat(item.percentage_of_expenses) || 0, 0), 100);
+            return (
             <View key={index} style={styles.breakdownRow}>
-              <View style={[styles.dot, { backgroundColor: item.color }]} />
+              <View style={[styles.dot, { backgroundColor: item.color || '#4f6ef7' }]} />
               <Text style={styles.breakdownCategory} numberOfLines={1}>
                 {item.category_name}
               </Text>
@@ -177,13 +195,30 @@ export default function DashboardScreen({ navigation }) {
                 <View
                   style={[
                     styles.barFill,
-                    { width: `${item.percentage_of_expenses}%`, backgroundColor: item.color },
+                    { width: `${barPct}%`, backgroundColor: item.color || '#4f6ef7' },
                   ]}
                 />
               </View>
               <Text style={styles.breakdownAmount}>${parseFloat(item.total).toFixed(2)}</Text>
             </View>
-          ))}
+            );
+          })}
+        </View>
+      )}
+
+      {/* Budget alert card */}
+      {budgetAlerts.length > 0 && (
+        <View style={styles.alertCard}>
+          <Text style={styles.alertTitle}>Budget Alert</Text>
+          {budgetAlerts.map((item, i) => {
+            const pct = parseFloat(item.percentage_used);
+            const name = item.category?.name || item.category_name || item.name || 'Category';
+            return (
+              <Text key={i} style={[styles.alertItem, pct > 100 && styles.alertOverBudget]}>
+                {name} — {pct > 100 ? 'OVER BUDGET' : `${Math.round(pct)}% used`}
+              </Text>
+            );
+          })}
         </View>
       )}
 
@@ -456,6 +491,30 @@ const styles = StyleSheet.create({
   barFill: {
     height: '100%',
     borderRadius: 4,
+  },
+  alertCard: {
+    marginHorizontal: 16,
+    marginBottom: 12,
+    backgroundColor: '#f97316',
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+  },
+  alertTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#1a1a2e',
+    marginBottom: 6,
+  },
+  alertItem: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#1a1a2e',
+    marginTop: 2,
+  },
+  alertOverBudget: {
+    color: '#7f1d1d',
+    fontWeight: '700',
   },
   breakdownAmount: {
     fontSize: 13,
