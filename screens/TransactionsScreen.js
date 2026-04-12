@@ -12,6 +12,21 @@ import {
   TextInput,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { FontAwesome } from '@expo/vector-icons';
+
+function CategoryIcon({ icon, color }) {
+  const bg = color ? `${color}33` : '#4f6ef733';
+  const hasIcon = icon && FontAwesome.glyphMap[icon] !== undefined;
+  return (
+    <View style={[styles.iconCircle, { backgroundColor: bg }]}>
+      {hasIcon ? (
+        <FontAwesome name={icon} size={18} color={color || '#4f6ef7'} />
+      ) : (
+        <View style={[styles.iconDot, { backgroundColor: color || '#4f6ef7' }]} />
+      )}
+    </View>
+  );
+}
 
 const BASE = 'https://finance-tracker-production-e13e.up.railway.app/api/v1';
 
@@ -86,6 +101,7 @@ export default function TransactionsScreen({ navigation }) {
         onPress={() => navigation.navigate('TransactionDetail', { transaction: item })}
         activeOpacity={0.75}
       >
+        <CategoryIcon icon={item.category?.icon} color={item.category?.color} />
         <View style={styles.txLeft}>
           <Text style={styles.txDescription} numberOfLines={1}>
             {item.description || item.category?.name || 'Transaction'}
@@ -265,6 +281,20 @@ const styles = StyleSheet.create({
     paddingVertical: 13,
     paddingHorizontal: 14,
     borderRadius: 10,
+  },
+  iconCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+    flexShrink: 0,
+  },
+  iconDot: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
   },
   txLeft: {
     flex: 1,

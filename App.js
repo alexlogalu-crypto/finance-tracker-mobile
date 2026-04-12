@@ -12,13 +12,14 @@ import AddTransactionScreen from './screens/AddTransactionScreen';
 import TransactionsScreen from './screens/TransactionsScreen';
 import TransactionDetailScreen from './screens/TransactionDetailScreen';
 import GoalsScreen from './screens/GoalsScreen';
+import AdvisorScreen from './screens/AdvisorScreen';
 import OnboardingScreen from './screens/OnboardingScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
 function TabIcon({ label, focused }) {
-  const icons = { Dashboard: '◈', Transactions: '≡', Budget: '◉', Goals: '◎' };
+  const icons = { Dashboard: '◈', Transactions: '≡', Advisor: '◆', Budget: '◉', Goals: '◎' };
   return (
     <Text style={{ fontSize: 20, color: focused ? '#4f6ef7' : '#a0aec0' }}>
       {icons[label] ?? '●'}
@@ -50,6 +51,7 @@ function MainTabs() {
     >
       <Tab.Screen name="Dashboard" component={DashboardScreen} />
       <Tab.Screen name="Transactions" component={TransactionsScreen} />
+      <Tab.Screen name="Advisor" component={AdvisorScreen} />
       <Tab.Screen
         name="Budget"
         component={BudgetScreen}

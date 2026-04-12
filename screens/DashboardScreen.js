@@ -12,8 +12,24 @@ import {
   RefreshControl,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { FontAwesome } from '@expo/vector-icons';
 import { getStreak } from '../utils/streak';
 import { useBudgetAlert } from '../context/BudgetAlertContext';
+import TrendChart from '../components/TrendChart';
+
+function CategoryIcon({ icon, color }) {
+  const bg = color ? `${color}33` : '#4f6ef733';
+  const hasIcon = icon && FontAwesome.glyphMap[icon] !== undefined;
+  return (
+    <View style={[styles.iconCircle, { backgroundColor: bg }]}>
+      {hasIcon ? (
+        <FontAwesome name={icon} size={18} color={color || '#4f6ef7'} />
+      ) : (
+        <View style={[styles.iconDot, { backgroundColor: color || '#4f6ef7' }]} />
+      )}
+    </View>
+  );
+}
 
 export default function DashboardScreen({ navigation }) {
   const [summary, setSummary] = useState(null);
@@ -21,6 +37,8 @@ export default function DashboardScreen({ navigation }) {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
   const [streak, setStreak] = useState(0);
+  const [trendData, setTrendData] = useState(null);
+  const [trendLoading, setTrendLoading] = useState(false);
   const { setAlertCount } = useBudgetAlert();
 
   const fetchSummary = useCallback(async (isRefresh = false) => {
@@ -43,6 +61,8 @@ export default function DashboardScreen({ navigation }) {
       }
       const data = await res.json();
       setSummary(data);
+      console.log('overview:', JSON.stringify(data.overview));
+      console.log('recent_transactions count:', data.recent_transactions?.length);
       console.log('spending_by_category:', JSON.stringify(data.spending_by_category));
       console.log('budget_performance:', JSON.stringify(data.budget_performance));
     } catch (err) {
@@ -53,11 +73,35 @@ export default function DashboardScreen({ navigation }) {
     }
   }, [navigation]);
 
+  const fetchTrend = useCallback(async () => {
+    setTrendLoading(true);
+    try {
+      const token = await AsyncStorage.getItem('access_token');
+      const res = await fetch(
+        'https://finance-tracker-production-e13e.up.railway.app/api/v1/summary/monthly-trend?months=6',
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      if (res.ok) {
+        const data = await res.json();
+        console.log('trendData:', JSON.stringify(data.trend));
+        setTrendData(data.trend ?? []);
+      } else {
+        console.log('trend fetch failed:', res.status);
+      }
+    } catch (err) {
+      console.log('trend fetch error:', err.message);
+    } finally {
+      setTrendLoading(false);
+      console.log('trendLoading: false');
+    }
+  }, []);
+
   useFocusEffect(
     useCallback(() => {
       fetchSummary();
+      fetchTrend();
       getStreak().then(setStreak);
-    }, [fetchSummary])
+    }, [fetchSummary, fetchTrend])
   );
 
   async function handleLogout() {
@@ -96,6 +140,7 @@ export default function DashboardScreen({ navigation }) {
         onPress={() => navigation.navigate('TransactionDetail', { transaction: item })}
         activeOpacity={0.75}
       >
+        <CategoryIcon icon={item.category?.icon} color={item.category?.color} />
         <View style={styles.txLeft}>
           <Text style={styles.txDescription} numberOfLines={1}>
             {item.description || item.category?.name || 'Transaction'}
@@ -132,7 +177,9 @@ export default function DashboardScreen({ navigation }) {
     );
   }
 
-  const net = parseFloat(summary?.overview?.total_income ?? 0) - parseFloat(summary?.overview?.total_expenses ?? 0);
+  const income = parseFloat(summary?.overview?.total_income ?? 0);
+  const expenses = parseFloat(summary?.overview?.total_expenses ?? 0);
+  const net = income - expenses;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -160,24 +207,27 @@ export default function DashboardScreen({ navigation }) {
         </View>
       )}
 
-      {/* Summary cards */}
-      <View style={styles.cards}>
-        <View style={[styles.card, styles.cardIncome]}>
-          <Text style={styles.cardLabel}>Income</Text>
-          <Text style={styles.cardValue}>{formatCurrency(summary?.overview?.total_income)}</Text>
-        </View>
-        <View style={[styles.card, styles.cardExpense]}>
-          <Text style={styles.cardLabel}>Expenses</Text>
-          <Text style={styles.cardValue}>{formatCurrency(summary?.overview?.total_expenses)}</Text>
-        </View>
-        <View style={[styles.card, styles.cardNet, net < 0 && styles.cardNetNegative]}>
-          <Text style={[styles.cardLabel, styles.cardLabelNet]}>Net Balance</Text>
-          <Text style={[styles.cardValue, styles.cardValueNet]}>
-            {net < 0 ? '-' : ''}
-            {formatCurrency(net)}
-          </Text>
+      {/* Hero balance card */}
+      <View style={styles.heroCard}>
+        <Text style={styles.heroLabel}>Total Balance</Text>
+        <Text style={styles.heroAmount}>
+          {net < 0 ? '-' : ''}${Math.abs(net).toFixed(2)}
+        </Text>
+        <View style={styles.heroPill}>
+          <Text style={styles.heroPillIncome}>+${income.toFixed(2)} in</Text>
+          <Text style={styles.heroPillDot}> · </Text>
+          <Text style={styles.heroPillExpense}>-${expenses.toFixed(2)} out</Text>
         </View>
       </View>
+
+      {/* Spending Trend chart */}
+      {trendLoading ? (
+        <View style={styles.trendPlaceholder}>
+          <ActivityIndicator size="small" color="#4f6ef7" />
+        </View>
+      ) : (
+        <TrendChart data={trendData} />
+      )}
 
       {/* Spending Breakdown */}
       {summary?.spending_by_category?.length > 0 && (
@@ -320,46 +370,52 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#f97316',
   },
-  cards: {
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    gap: 10,
-  },
-  card: {
-    borderRadius: 12,
-    paddingVertical: 14,
-    paddingHorizontal: 18,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  heroCard: {
+    marginHorizontal: 16,
+    marginTop: 16,
+    marginBottom: 4,
+    backgroundColor: '#16213e',
+    borderRadius: 20,
+    paddingVertical: 28,
+    paddingHorizontal: 28,
     alignItems: 'center',
   },
-  cardIncome: {
-    backgroundColor: 'rgba(72,187,120,0.15)',
-  },
-  cardExpense: {
-    backgroundColor: 'rgba(252,129,129,0.15)',
-  },
-  cardNet: {
-    backgroundColor: '#4f6ef7',
-  },
-  cardNetNegative: {
-    backgroundColor: '#e53935',
-  },
-  cardLabel: {
-    fontSize: 14,
+  heroLabel: {
+    fontSize: 13,
     fontWeight: '500',
-    color: '#a0aec0',
+    color: '#718096',
+    marginBottom: 8,
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
   },
-  cardLabelNet: {
-    color: 'rgba(255,255,255,0.8)',
-  },
-  cardValue: {
-    fontSize: 18,
+  heroAmount: {
+    fontSize: 48,
     fontWeight: '700',
-    color: '#f0f4f8',
-  },
-  cardValueNet: {
     color: '#fff',
+    lineHeight: 56,
+  },
+  heroPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 12,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+  },
+  heroPillIncome: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#48bb78',
+  },
+  heroPillDot: {
+    fontSize: 13,
+    color: '#4a5568',
+  },
+  heroPillExpense: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#fc8181',
   },
   income: {
     color: '#48bb78',
@@ -387,6 +443,20 @@ const styles = StyleSheet.create({
     paddingVertical: 13,
     paddingHorizontal: 14,
     borderRadius: 10,
+  },
+  iconCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+    flexShrink: 0,
+  },
+  iconDot: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
   },
   txLeft: {
     flex: 1,
@@ -458,6 +528,16 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#fc8181',
     fontWeight: '500',
+  },
+  trendPlaceholder: {
+    marginHorizontal: 16,
+    marginTop: 12,
+    marginBottom: 4,
+    height: 60,
+    backgroundColor: '#16213e',
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   breakdownContainer: {
     paddingHorizontal: 16,
