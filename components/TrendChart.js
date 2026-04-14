@@ -77,14 +77,14 @@ export default function TrendChart({ data }) {
                     y1={y}
                     x2={containerWidth - PAD_RIGHT}
                     y2={y}
-                    stroke="#2a2a4a"
+                    stroke="#2a2a2a"
                     strokeWidth={1}
                   />
                   <SvgText
                     x={PAD_LEFT - 6}
                     y={y + 4}
                     fontSize={10}
-                    fill="#718096"
+                    fill="#6b7280"
                     textAnchor="end"
                   >
                     {formatYLabel(val)}
@@ -142,7 +142,7 @@ export default function TrendChart({ data }) {
                 x={xFor(i)}
                 y={CHART_HEIGHT - 4}
                 fontSize={10}
-                fill="#718096"
+                fill="#6b7280"
                 textAnchor="middle"
               >
                 {MONTH_ABBR[(d.month - 1) % 12]}
@@ -160,7 +160,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
     marginTop: 12,
     marginBottom: 4,
-    backgroundColor: '#16213e',
+    backgroundColor: '#1a1a2a',
     borderRadius: 16,
     paddingTop: 14,
     paddingBottom: 6,
@@ -176,7 +176,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#f0f4f8',
+    color: '#ffffff',
   },
   legend: {
     flexDirection: 'row',
@@ -190,7 +190,7 @@ const styles = StyleSheet.create({
   },
   legendLabel: {
     fontSize: 11,
-    color: '#a0aec0',
+    color: '#9ca3af',
   },
   chartContainer: {
     width: '100%',

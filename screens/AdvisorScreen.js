@@ -10,8 +10,9 @@ import {
   SafeAreaView,
   KeyboardAvoidingView,
   Platform,
+  ScrollView,
 } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { storage } from '../utils/storage';
 
 const BASE = 'https://finance-tracker-production-e13e.up.railway.app/api/v1';
 
@@ -27,17 +28,16 @@ function nextId() {
 }
 
 const CHIPS = [
-  'How can I save more?',
-  'Analyze my spending',
-  'Am I on track this month?',
-  'How are my goals looking?',
+  'Analyze spending',
+  'Optimize savings',
+  'Am I on track?',
+  'How are my goals?',
 ];
 
 export default function AdvisorScreen({ navigation }) {
   const [messages, setMessages] = useState([GREETING]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
-  const [chipsVisible, setChipsVisible] = useState(true);
   const listRef = useRef(null);
 
   useEffect(() => {
@@ -46,23 +46,19 @@ export default function AdvisorScreen({ navigation }) {
     }
   }, [messages]);
 
-  const sendChip = (text) => {
-    setInput(text);
-    sendMessage(text);
-  };
+  const sendChip = (text) => sendMessage(text);
 
   const sendMessage = async (overrideText) => {
     const text = (overrideText ?? input).trim();
     if (!text || loading) return;
 
-    setChipsVisible(false);
     const userMsg = { id: nextId(), role: 'user', text };
     setMessages((prev) => [...prev, userMsg]);
     setInput('');
     setLoading(true);
 
     try {
-      const tok = await AsyncStorage.getItem('access_token');
+      const tok = await storage.getItem('access_token');
       if (!tok) {
         navigation.getParent()?.replace('Login');
         return;
@@ -77,7 +73,7 @@ export default function AdvisorScreen({ navigation }) {
       });
 
       if (res.status === 401) {
-        await AsyncStorage.removeItem('access_token');
+        await storage.removeItem('access_token');
         navigation.getParent()?.replace('Login');
         return;
       }
@@ -85,15 +81,12 @@ export default function AdvisorScreen({ navigation }) {
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail ?? 'Something went wrong.');
 
-      const aiMsg = { id: nextId(), role: 'ai', text: data.response };
-      setMessages((prev) => [...prev, aiMsg]);
+      setMessages((prev) => [...prev, { id: nextId(), role: 'ai', text: data.response }]);
     } catch (e) {
-      const errMsg = {
-        id: nextId(),
-        role: 'ai',
-        text: `Sorry, something went wrong: ${e.message}`,
-      };
-      setMessages((prev) => [...prev, errMsg]);
+      setMessages((prev) => [
+        ...prev,
+        { id: nextId(), role: 'ai', text: `Sorry, something went wrong: ${e.message}` },
+      ]);
     } finally {
       setLoading(false);
     }
@@ -101,12 +94,19 @@ export default function AdvisorScreen({ navigation }) {
 
   const renderMessage = ({ item }) => {
     const isUser = item.role === 'user';
+    if (isUser) {
+      return (
+        <View style={styles.userMsgRow}>
+          <Text style={styles.userLabel}>You</Text>
+          <Text style={styles.userText}>{item.text}</Text>
+        </View>
+      );
+    }
     return (
-      <View style={[styles.msgRow, isUser ? styles.msgRowUser : styles.msgRowAi]}>
-        <View style={[styles.bubble, isUser ? styles.bubbleUser : styles.bubbleAi]}>
-          <Text style={[styles.bubbleText, isUser ? styles.bubbleTextUser : styles.bubbleTextAi]}>
-            {item.text}
-          </Text>
+      <View style={styles.aiMsgRow}>
+        <Text style={styles.aiLabel}>Financial Advisor</Text>
+        <View style={styles.aiBorder}>
+          <Text style={styles.aiText}>{item.text}</Text>
         </View>
       </View>
     );
@@ -114,9 +114,10 @@ export default function AdvisorScreen({ navigation }) {
 
   return (
     <SafeAreaView style={styles.root}>
+      {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.title}>AI Advisor</Text>
-        <Text style={styles.subtitle}>Ask me anything about your finances</Text>
+        <Text style={styles.headerTitle}>AI Advisor</Text>
+        <Text style={styles.headerSub}>Ask me anything about your finances</Text>
       </View>
 
       <KeyboardAvoidingView
@@ -135,40 +136,46 @@ export default function AdvisorScreen({ navigation }) {
 
         {loading && (
           <View style={styles.typingRow}>
-            <ActivityIndicator size="small" color="#4f6ef7" />
-            <Text style={styles.typingText}>Advisor is thinking…</Text>
+            <View style={[styles.typingDot, { opacity: 0.8 }]} />
+            <View style={[styles.typingDot, { opacity: 0.5 }]} />
+            <View style={[styles.typingDot, { opacity: 0.3 }]} />
           </View>
         )}
 
-        {chipsVisible && (
-          <View style={styles.chipsGrid}>
-            {CHIPS.map((chip) => (
-              <TouchableOpacity
-                key={chip}
-                style={styles.chip}
-                onPress={() => sendChip(chip)}
-              >
-                <Text style={styles.chipText}>{chip}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        )}
+        {/* Chip prompts */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.chipsScroll}
+          contentContainerStyle={styles.chipsContent}
+        >
+          {CHIPS.map((chip) => (
+            <TouchableOpacity
+              key={chip}
+              style={styles.chip}
+              onPress={() => sendChip(chip)}
+            >
+              <Text style={styles.chipText}>{chip}</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
 
+        {/* Input bar */}
         <View style={styles.inputRow}>
           <TextInput
             style={styles.input}
             value={input}
             onChangeText={setInput}
-            placeholder="Ask about your spending, budgets, goals…"
-            placeholderTextColor="#aaa"
+            placeholder="Ask your advisor..."
+            placeholderTextColor="#4b5563"
             multiline
             maxLength={500}
-            onSubmitEditing={sendMessage}
+            onSubmitEditing={() => sendMessage()}
             returnKeyType="send"
           />
           <TouchableOpacity
             style={[styles.sendBtn, (!input.trim() || loading) && styles.sendBtnDisabled]}
-            onPress={sendMessage}
+            onPress={() => sendMessage()}
             disabled={!input.trim() || loading}
           >
             <Text style={styles.sendBtnText}>↑</Text>
@@ -182,143 +189,160 @@ export default function AdvisorScreen({ navigation }) {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#f0f4f8',
+    backgroundColor: '#121318',
   },
-  flex: {
-    flex: 1,
-  },
+  flex: { flex: 1 },
   header: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 24,
     paddingTop: Platform.OS === 'android' ? 16 : 8,
-    paddingBottom: 12,
+    paddingBottom: 14,
     borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
-    backgroundColor: '#f0f4f8',
+    borderBottomColor: 'rgba(59,73,76,0.15)',
+    backgroundColor: 'rgba(18,19,24,0.7)',
   },
-  title: {
-    fontSize: 26,
+  headerTitle: {
+    fontSize: 22,
     fontWeight: '700',
-    color: '#1a1a2e',
+    color: '#00E5FF',
+    letterSpacing: -0.5,
   },
-  subtitle: {
-    fontSize: 13,
-    color: '#888',
-    marginTop: 2,
+  headerSub: {
+    fontSize: 12,
+    color: '#bac9cc',
+    marginTop: 3,
   },
   listContent: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
+    paddingHorizontal: 24,
+    paddingTop: 24,
     paddingBottom: 8,
+    gap: 28,
   },
-  msgRow: {
-    marginBottom: 12,
-    flexDirection: 'row',
+  // AI message
+  aiMsgRow: {
+    maxWidth: '90%',
+    gap: 6,
+    marginBottom: 4,
   },
-  msgRowUser: {
-    justifyContent: 'flex-end',
+  aiLabel: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#c3f5ff',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    marginBottom: 4,
   },
-  msgRowAi: {
-    justifyContent: 'flex-start',
+  aiBorder: {
+    borderLeftWidth: 2,
+    borderLeftColor: '#00E5FF',
+    paddingLeft: 14,
+    paddingVertical: 4,
   },
-  bubble: {
-    maxWidth: '80%',
-    borderRadius: 18,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  bubbleUser: {
-    backgroundColor: '#4f6ef7',
-    borderBottomRightRadius: 4,
-  },
-  bubbleAi: {
-    backgroundColor: '#16213e',
-    borderBottomLeftRadius: 4,
-  },
-  bubbleText: {
+  aiText: {
     fontSize: 15,
-    lineHeight: 22,
+    lineHeight: 23,
+    color: '#e3e1e9',
+    fontWeight: '300',
   },
-  bubbleTextUser: {
-    color: '#ffffff',
+  // User message
+  userMsgRow: {
+    alignSelf: 'flex-end',
+    alignItems: 'flex-end',
+    maxWidth: '90%',
+    gap: 6,
+    marginBottom: 4,
   },
-  bubbleTextAi: {
-    color: '#f0f4f8',
+  userLabel: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#bac9cc',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    marginBottom: 4,
   },
+  userText: {
+    fontSize: 15,
+    lineHeight: 23,
+    color: '#e3e1e9',
+    fontWeight: '300',
+    textAlign: 'right',
+  },
+  // Typing
   typingRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: 24,
     paddingBottom: 8,
-    gap: 8,
+    gap: 4,
   },
-  typingText: {
-    fontSize: 13,
-    color: '#888',
-    fontStyle: 'italic',
+  typingDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: '#00E5FF',
   },
-  chipsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    paddingHorizontal: 16,
-    paddingTop: 10,
-    paddingBottom: 6,
-    gap: 8,
-    backgroundColor: '#fff',
+  // Chips
+  chipsScroll: {
+    flexGrow: 0,
     borderTopWidth: 1,
-    borderTopColor: '#e2e8f0',
+    borderTopColor: 'rgba(59,73,76,0.2)',
+    paddingVertical: 10,
+  },
+  chipsContent: {
+    paddingHorizontal: 16,
+    gap: 8,
   },
   chip: {
-    width: '47%',
-    backgroundColor: '#0a0a0a',
-    borderWidth: 1,
-    borderColor: '#00E5FF',
-    borderRadius: 20,
+    paddingHorizontal: 16,
     paddingVertical: 8,
-    paddingHorizontal: 12,
-    alignItems: 'center',
+    backgroundColor: 'rgba(52,52,58,0.6)',
+    borderWidth: 1,
+    borderColor: 'rgba(59,73,76,0.3)',
+    borderRadius: 20,
   },
   chipText: {
-    color: '#00E5FF',
-    fontSize: 13,
-    fontWeight: '600',
-    textAlign: 'center',
+    color: '#e3e1e9',
+    fontSize: 12,
+    fontWeight: '500',
   },
+  // Input row
   inputRow: {
     flexDirection: 'row',
     alignItems: 'flex-end',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: '#fff',
+    backgroundColor: '#1e1f25',
     borderTopWidth: 1,
-    borderTopColor: '#e2e8f0',
+    borderTopColor: 'rgba(59,73,76,0.2)',
     gap: 10,
   },
   input: {
     flex: 1,
-    backgroundColor: '#f0f4f8',
-    borderRadius: 22,
+    backgroundColor: '#121318',
+    borderRadius: 8,
     paddingHorizontal: 16,
     paddingTop: 10,
     paddingBottom: 10,
-    fontSize: 15,
-    color: '#1a1a2e',
+    fontSize: 14,
+    color: '#e3e1e9',
     maxHeight: 120,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: 'rgba(59,73,76,0.3)',
   },
   sendBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#4f6ef7',
+    width: 40,
+    height: 40,
+    borderRadius: 8,
+    backgroundColor: '#00E5FF',
     alignItems: 'center',
     justifyContent: 'center',
   },
   sendBtnDisabled: {
-    backgroundColor: '#c4cfe8',
+    backgroundColor: '#1e1f25',
+    borderWidth: 1,
+    borderColor: '#3b494c',
   },
   sendBtnText: {
-    color: '#fff',
+    color: '#001f24',
     fontSize: 20,
     fontWeight: '700',
     lineHeight: 24,

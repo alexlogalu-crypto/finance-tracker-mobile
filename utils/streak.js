@@ -1,4 +1,4 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { storage } from './storage';
 
 function todayString() {
   return new Date().toISOString().split('T')[0];
@@ -14,14 +14,11 @@ export async function recordTransaction() {
   const today = todayString();
   const yesterday = yesterdayString();
 
-  const [lastDate, countStr] = await AsyncStorage.multiGet(['streak_last_date', 'streak_count']);
-  const last = lastDate[1];
-  const count = parseInt(countStr[1] ?? '0', 10) || 0;
+  const last = await storage.getItem('streak_last_date');
+  const countStr = await storage.getItem('streak_count');
+  const count = parseInt(countStr ?? '0', 10) || 0;
 
-  if (last === today) {
-    // Already recorded today — nothing to do
-    return;
-  }
+  if (last === today) return;
 
   let newCount;
   if (!last) {
@@ -32,19 +29,17 @@ export async function recordTransaction() {
     newCount = 1;
   }
 
-  await AsyncStorage.multiSet([
-    ['streak_count', String(newCount)],
-    ['streak_last_date', today],
-  ]);
+  await storage.setItem('streak_count', String(newCount));
+  await storage.setItem('streak_last_date', today);
 }
 
 export async function getStreak() {
   const today = todayString();
   const yesterday = yesterdayString();
 
-  const [lastDate, countStr] = await AsyncStorage.multiGet(['streak_last_date', 'streak_count']);
-  const last = lastDate[1];
-  const count = parseInt(countStr[1] ?? '0', 10) || 0;
+  const last = await storage.getItem('streak_last_date');
+  const countStr = await storage.getItem('streak_count');
+  const count = parseInt(countStr ?? '0', 10) || 0;
 
   if (last === today || last === yesterday) {
     return count;

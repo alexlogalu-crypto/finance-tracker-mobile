@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { Text, View, ActivityIndicator } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { View, Text, ActivityIndicator } from 'react-native';
+import { storage } from './utils/storage';
 import { BudgetAlertProvider, useBudgetAlert } from './context/BudgetAlertContext';
 import LoginScreen from './screens/LoginScreen';
 import DashboardScreen from './screens/DashboardScreen';
@@ -18,14 +18,13 @@ import OnboardingScreen from './screens/OnboardingScreen';
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
-function TabIcon({ label, focused }) {
-  const icons = { Dashboard: '◈', Transactions: '≡', Advisor: '◆', Budget: '◉', Goals: '◎' };
-  return (
-    <Text style={{ fontSize: 20, color: focused ? '#4f6ef7' : '#a0aec0' }}>
-      {icons[label] ?? '●'}
-    </Text>
-  );
-}
+const TAB_ICONS = {
+  Dashboard: '🏠',
+  Transactions: '📋',
+  Advisor: '💬',
+  Budget: '📊',
+  Goals: '🎯',
+};
 
 function MainTabs() {
   const { alertCount } = useBudgetAlert();
@@ -33,18 +32,23 @@ function MainTabs() {
     <Tab.Navigator
       screenOptions={({ route }) => ({
         headerShown: false,
-        tabBarIcon: ({ focused }) => <TabIcon label={route.name} focused={focused} />,
-        tabBarActiveTintColor: '#4f6ef7',
-        tabBarInactiveTintColor: '#a0aec0',
+        tabBarIcon: ({ focused }) => (
+          <Text style={{ fontSize: 20, color: focused ? '#00E5FF' : '#4b5563' }}>
+            {TAB_ICONS[route.name] ?? '●'}
+          </Text>
+        ),
+        tabBarActiveTintColor: '#00E5FF',
+        tabBarInactiveTintColor: '#4b5563',
         tabBarStyle: {
           borderTopWidth: 1,
-          borderTopColor: '#2a2a4a',
-          backgroundColor: '#16213e',
-          height: 60,
+          borderTopColor: '#3b494c',
+          backgroundColor: '#121318',
+          height: 62,
           paddingBottom: 8,
+          paddingTop: 6,
         },
         tabBarLabelStyle: {
-          fontSize: 12,
+          fontSize: 11,
           fontWeight: '600',
         },
       })}
@@ -66,52 +70,62 @@ export default function App() {
   const [initialRoute, setInitialRoute] = useState(null);
 
   useEffect(() => {
-    AsyncStorage.getItem('onboarding_complete').then((val) => {
-      setInitialRoute(val === 'true' ? 'Login' : 'Onboarding');
-    });
+    (async () => {
+      const onboarded = await storage.getItem('onboarding_complete');
+      console.log('onboarded:', onboarded);
+      if (onboarded !== 'true') {
+        setInitialRoute('Onboarding');
+        return;
+      }
+      const token = await storage.getItem('access_token');
+      console.log('token on startup:', token ? 'present' : 'MISSING');
+      setInitialRoute(token ? 'Main' : 'Login');
+    })();
   }, []);
 
   if (!initialRoute) {
     return (
-      <View style={{ flex: 1, backgroundColor: '#1a1a2e', justifyContent: 'center', alignItems: 'center' }}>
-        <ActivityIndicator size="large" color="#4f6ef7" />
+      <View style={{ flex: 1, backgroundColor: '#121318', justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color="#00E5FF" />
       </View>
     );
   }
 
   return (
     <BudgetAlertProvider>
-    <NavigationContainer>
-      <Stack.Navigator initialRouteName={initialRoute} screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="Onboarding" component={OnboardingScreen} />
-        <Stack.Screen name="Login" component={LoginScreen} />
-        <Stack.Screen name="Main" component={MainTabs} />
-        <Stack.Screen
-          name="AddTransaction"
-          component={AddTransactionScreen}
-          options={{
-            headerShown: true,
-            title: 'Add Transaction',
-            headerBackTitle: 'Back',
-            headerStyle: { backgroundColor: '#16213e' },
-            headerTintColor: '#f0f4f8',
-            headerTitleStyle: { color: '#f0f4f8' },
-          }}
-        />
-        <Stack.Screen
-          name="TransactionDetail"
-          component={TransactionDetailScreen}
-          options={{
-            headerShown: true,
-            title: 'Transaction',
-            headerBackTitle: 'Back',
-            headerStyle: { backgroundColor: '#16213e' },
-            headerTintColor: '#f0f4f8',
-            headerTitleStyle: { color: '#f0f4f8' },
-          }}
-        />
-      </Stack.Navigator>
-    </NavigationContainer>
+      <NavigationContainer>
+        <Stack.Navigator initialRouteName={initialRoute} screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="Onboarding" component={OnboardingScreen} />
+          <Stack.Screen name="Login" component={LoginScreen} />
+          <Stack.Screen name="Main" component={MainTabs} />
+          <Stack.Screen
+            name="AddTransaction"
+            component={AddTransactionScreen}
+            options={{
+              headerShown: true,
+              title: 'Add Transaction',
+              headerBackTitle: 'Back',
+              headerStyle: { backgroundColor: '#121318' },
+              headerTintColor: '#00E5FF',
+              headerTitleStyle: { color: '#e3e1e9', fontWeight: '600' },
+              headerShadowVisible: false,
+            }}
+          />
+          <Stack.Screen
+            name="TransactionDetail"
+            component={TransactionDetailScreen}
+            options={{
+              headerShown: true,
+              title: 'Transaction',
+              headerBackTitle: 'Back',
+              headerStyle: { backgroundColor: '#121318' },
+              headerTintColor: '#00E5FF',
+              headerTitleStyle: { color: '#e3e1e9', fontWeight: '600' },
+              headerShadowVisible: false,
+            }}
+          />
+        </Stack.Navigator>
+      </NavigationContainer>
     </BudgetAlertProvider>
   );
 }

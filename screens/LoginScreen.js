@@ -10,7 +10,7 @@ import {
   ActivityIndicator,
   Alert,
 } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { storage } from '../utils/storage';
 
 export default function LoginScreen({ navigation }) {
   const [email, setEmail] = useState('');
@@ -28,7 +28,9 @@ export default function LoginScreen({ navigation }) {
   }
 
   async function handleLogin() {
+    console.log('login pressed');
     const errs = validate();
+    console.log('validation errors:', JSON.stringify(errs));
     if (Object.keys(errs).length) {
       setErrors(errs);
       return;
@@ -41,15 +43,19 @@ export default function LoginScreen({ navigation }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
       });
+      console.log('fetch status:', res.status);
       const data = await res.json();
       if (!res.ok) {
         const message = data?.detail || 'Login failed. Please try again.';
         Alert.alert('Login Failed', message);
         return;
       }
-      await AsyncStorage.setItem('access_token', data.access_token);
+      console.log('token stored:', data.access_token ? 'yes' : 'MISSING');
+      await storage.setItem('access_token', data.access_token);
+      console.log('navigating to Main');
       navigation.replace('Main');
     } catch (err) {
+      console.log('login error:', err.message);
       Alert.alert('Error', err.message || 'An unexpected error occurred.');
     } finally {
       setLoading(false);
@@ -62,23 +68,27 @@ export default function LoginScreen({ navigation }) {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <View style={styles.inner}>
-        <Text style={styles.title}>Finance Tracker</Text>
-        <Text style={styles.subtitle}>Sign in to your account</Text>
+        {/* Brand */}
+        <View style={styles.brand}>
+          <Text style={styles.brandTitle}>Wealth Ledger</Text>
+          <Text style={styles.brandSub}>Sign in to your account</Text>
+        </View>
 
+        {/* Form */}
         <View style={styles.form}>
           <View style={styles.field}>
             <Text style={styles.label}>Email</Text>
             <TextInput
               style={[styles.input, errors.email && styles.inputError]}
               placeholder="you@example.com"
-              placeholderTextColor="#a0aec0"
+              placeholderTextColor="#4b5563"
               value={email}
               onChangeText={setEmail}
               keyboardType="email-address"
               autoCapitalize="none"
               autoCorrect={false}
             />
-            {errors.email ? <Text style={styles.errorText}>{errors.email}</Text> : null}
+            {errors.email ? <Text style={styles.fieldError}>{errors.email}</Text> : null}
           </View>
 
           <View style={styles.field}>
@@ -86,12 +96,12 @@ export default function LoginScreen({ navigation }) {
             <TextInput
               style={[styles.input, errors.password && styles.inputError]}
               placeholder="••••••••"
-              placeholderTextColor="#a0aec0"
+              placeholderTextColor="#4b5563"
               value={password}
               onChangeText={setPassword}
               secureTextEntry
             />
-            {errors.password ? <Text style={styles.errorText}>{errors.password}</Text> : null}
+            {errors.password ? <Text style={styles.fieldError}>{errors.password}</Text> : null}
           </View>
 
           <TouchableOpacity
@@ -101,20 +111,25 @@ export default function LoginScreen({ navigation }) {
             activeOpacity={0.85}
           >
             {loading ? (
-              <ActivityIndicator color="#fff" />
+              <ActivityIndicator color="#001f24" />
             ) : (
               <Text style={styles.buttonText}>Sign In</Text>
             )}
           </TouchableOpacity>
         </View>
 
+        {/* Footer */}
         <View style={styles.footer}>
           <Text style={styles.footerText}>Don't have an account? </Text>
           <TouchableOpacity onPress={() => Alert.alert('Coming Soon', 'Registration is not available yet.')}>
-            <Text style={styles.link}>Create account</Text>
+            <Text style={styles.footerLink}>Create account</Text>
           </TouchableOpacity>
         </View>
       </View>
+
+      {/* Ambient glow */}
+      <View style={styles.glowTop} pointerEvents="none" />
+      <View style={styles.glowBottom} pointerEvents="none" />
     </KeyboardAvoidingView>
   );
 }
@@ -122,7 +137,7 @@ export default function LoginScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1a1a2e',
+    backgroundColor: '#121318',
   },
   inner: {
     flex: 1,
@@ -130,16 +145,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: 28,
     paddingBottom: 40,
   },
-  title: {
-    fontSize: 28,
+  brand: {
+    marginBottom: 44,
+  },
+  brandTitle: {
+    fontSize: 32,
     fontWeight: '700',
-    color: '#f0f4f8',
+    color: '#00E5FF',
+    letterSpacing: -1,
     marginBottom: 6,
   },
-  subtitle: {
-    fontSize: 15,
-    color: '#a0aec0',
-    marginBottom: 36,
+  brandSub: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#bac9cc',
+    letterSpacing: 0.3,
   },
   form: {
     gap: 20,
@@ -148,31 +168,34 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   label: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#f0f4f8',
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#bac9cc',
+    textTransform: 'uppercase',
+    letterSpacing: 1.2,
   },
   input: {
-    height: 48,
+    height: 50,
     borderWidth: 1,
-    borderColor: '#2a2a4a',
-    borderRadius: 10,
-    paddingHorizontal: 14,
+    borderColor: 'rgba(59,73,76,0.4)',
+    borderRadius: 8,
+    paddingHorizontal: 16,
     fontSize: 15,
-    color: '#f0f4f8',
-    backgroundColor: '#16213e',
+    color: '#e3e1e9',
+    backgroundColor: '#1a1b21',
   },
   inputError: {
-    borderColor: '#fc8181',
+    borderColor: '#ffb4ab',
   },
-  errorText: {
+  fieldError: {
     fontSize: 12,
-    color: '#fc8181',
+    color: '#ffb4ab',
+    marginTop: 2,
   },
   button: {
-    height: 50,
-    backgroundColor: '#4f6ef7',
-    borderRadius: 10,
+    height: 52,
+    backgroundColor: '#00E5FF',
+    borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 8,
@@ -181,9 +204,10 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   buttonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
+    color: '#001f24',
+    fontSize: 15,
+    fontWeight: '700',
+    letterSpacing: 0.3,
   },
   footer: {
     flexDirection: 'row',
@@ -191,13 +215,31 @@ const styles = StyleSheet.create({
     marginTop: 32,
   },
   footerText: {
-    fontSize: 14,
-    color: '#a0aec0',
+    fontSize: 13,
+    color: '#bac9cc',
   },
-  link: {
-    fontSize: 14,
+  footerLink: {
+    fontSize: 13,
     fontWeight: '600',
-    color: '#4f6ef7',
-    textDecorationLine: 'underline',
+    color: '#00E5FF',
+  },
+  glowTop: {
+    position: 'absolute',
+    top: -80,
+    right: -80,
+    width: 240,
+    height: 240,
+    borderRadius: 120,
+    backgroundColor: 'rgba(0,229,255,0.04)',
+    transform: [{ scaleX: 1.5 }],
+  },
+  glowBottom: {
+    position: 'absolute',
+    bottom: -60,
+    left: -60,
+    width: 200,
+    height: 200,
+    borderRadius: 100,
+    backgroundColor: 'rgba(0,229,255,0.03)',
   },
 });

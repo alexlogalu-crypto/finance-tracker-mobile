@@ -14,14 +14,13 @@ import {
   RefreshControl,
   KeyboardAvoidingView,
   Platform,
-  ScrollView,
 } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { storage } from '../utils/storage';
 
 const API = 'https://finance-tracker-production-e13e.up.railway.app/api/v1/goals';
 
 async function getToken() {
-  return AsyncStorage.getItem('access_token');
+  return storage.getItem('access_token');
 }
 
 export default function GoalsScreen({ navigation }) {
@@ -30,14 +29,12 @@ export default function GoalsScreen({ navigation }) {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
 
-  // Add goal modal
   const [addVisible, setAddVisible] = useState(false);
   const [addName, setAddName] = useState('');
   const [addTarget, setAddTarget] = useState('');
   const [addDeadline, setAddDeadline] = useState('');
   const [addSaving, setAddSaving] = useState(false);
 
-  // Add money modal
   const [moneyGoal, setMoneyGoal] = useState(null);
   const [moneyAmount, setMoneyAmount] = useState('');
   const [moneySaving, setMoneySaving] = useState(false);
@@ -48,11 +45,9 @@ export default function GoalsScreen({ navigation }) {
     setError(null);
     try {
       const token = await getToken();
-      const res = await fetch(API, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await fetch(API, { headers: { Authorization: `Bearer ${token}` } });
       if (res.status === 401) {
-        await AsyncStorage.removeItem('access_token');
+        await storage.removeItem('access_token');
         navigation.getParent()?.replace('Login');
         return;
       }
@@ -70,11 +65,7 @@ export default function GoalsScreen({ navigation }) {
     }
   }, [navigation]);
 
-  useFocusEffect(
-    useCallback(() => {
-      fetchGoals();
-    }, [fetchGoals])
-  );
+  useFocusEffect(useCallback(() => { fetchGoals(); }, [fetchGoals]));
 
   async function handleAddGoal() {
     const name = addName.trim();
@@ -95,21 +86,12 @@ export default function GoalsScreen({ navigation }) {
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       });
-      if (res.status === 401) {
-        await AsyncStorage.removeItem('access_token');
-        navigation.getParent()?.replace('Login');
-        return;
-      }
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data?.detail || `Request failed (${res.status})`);
-      }
+      if (res.status === 401) { await storage.removeItem('access_token'); navigation.getParent()?.replace('Login'); return; }
+      if (!res.ok) { const data = await res.json().catch(() => ({})); throw new Error(data?.detail || `Request failed (${res.status})`); }
       const newGoal = await res.json();
       setGoals(prev => [newGoal, ...prev]);
       setAddVisible(false);
-      setAddName('');
-      setAddTarget('');
-      setAddDeadline('');
+      setAddName(''); setAddTarget(''); setAddDeadline('');
     } catch (err) {
       Alert.alert('Error', err.message || 'Failed to create goal.');
     } finally {
@@ -125,30 +107,18 @@ export default function GoalsScreen({ navigation }) {
       const token = await getToken();
       const goal = moneyGoal;
       const newCurrent = parseFloat(goal.current_amount) + amount;
-      const body = {
-        name: goal.name,
-        target_amount: parseFloat(goal.target_amount),
-        current_amount: newCurrent,
-      };
+      const body = { name: goal.name, target_amount: parseFloat(goal.target_amount), current_amount: newCurrent };
       if (goal.deadline) body.deadline = goal.deadline;
       const res = await fetch(`${API}/${goal.id}`, {
         method: 'PUT',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       });
-      if (res.status === 401) {
-        await AsyncStorage.removeItem('access_token');
-        navigation.getParent()?.replace('Login');
-        return;
-      }
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data?.detail || `Request failed (${res.status})`);
-      }
+      if (res.status === 401) { await storage.removeItem('access_token'); navigation.getParent()?.replace('Login'); return; }
+      if (!res.ok) { const data = await res.json().catch(() => ({})); throw new Error(data?.detail || `Request failed (${res.status})`); }
       const updated = await res.json();
       setGoals(prev => prev.map(g => (g.id === updated.id ? updated : g)));
-      setMoneyGoal(null);
-      setMoneyAmount('');
+      setMoneyGoal(null); setMoneyAmount('');
     } catch (err) {
       Alert.alert('Error', err.message || 'Failed to update goal.');
     } finally {
@@ -159,35 +129,18 @@ export default function GoalsScreen({ navigation }) {
   async function doDeleteGoal(goal) {
     try {
       const token = await getToken();
-      const url = `${API}/${goal.id}`;
-      console.log('[GoalDelete] token:', token);
-      console.log('[GoalDelete] url:', url);
-      const res = await fetch(url, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      console.log('[GoalDelete] status:', res.status);
-      if (res.status === 401) {
-        await AsyncStorage.removeItem('access_token');
-        navigation.getParent()?.replace('Login');
-        return;
-      }
-      if (!res.ok && res.status !== 204) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data?.detail || `Request failed (${res.status})`);
-      }
+      const res = await fetch(`${API}/${goal.id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+      if (res.status === 401) { await storage.removeItem('access_token'); navigation.getParent()?.replace('Login'); return; }
+      if (!res.ok && res.status !== 204) { const data = await res.json().catch(() => ({})); throw new Error(data?.detail || `Request failed (${res.status})`); }
       setGoals(prev => prev.filter(g => g.id !== goal.id));
     } catch (err) {
-      console.log('[GoalDelete] error:', err.message);
       Alert.alert('Error', err.message || 'Failed to delete goal.');
     }
   }
 
   function handleDelete(goal) {
     if (Platform.OS === 'web') {
-      if (window.confirm(`Delete "${goal.name}"?`)) {
-        doDeleteGoal(goal);
-      }
+      if (window.confirm(`Delete "${goal.name}"?`)) doDeleteGoal(goal);
       return;
     }
     Alert.alert('Delete Goal', `Delete "${goal.name}"?`, [
@@ -202,56 +155,62 @@ export default function GoalsScreen({ navigation }) {
     const pct = target > 0 ? Math.min((current / target) * 100, 100) : 0;
     const complete = current >= target;
     const remaining = Math.max(target - current, 0);
-
     return (
       <View style={styles.card}>
+        {/* Card header */}
         <View style={styles.cardHeader}>
-          <Text style={styles.goalName} numberOfLines={1}>{item.name}</Text>
+          <View style={{ flex: 1, marginRight: 8 }}>
+            <Text style={styles.goalName} numberOfLines={1}>{item.name}</Text>
+            <Text style={styles.goalSubLabel}>{complete ? 'Goal Complete' : 'Savings Goal'}</Text>
+          </View>
           <TouchableOpacity onPress={() => handleDelete(item)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
             <Text style={styles.deleteBtn}>✕</Text>
           </TouchableOpacity>
         </View>
 
-        <View style={styles.amountRow}>
-          <Text style={styles.currentAmount}>${current.toFixed(2)}</Text>
-          <Text style={styles.targetAmount}> / ${target.toFixed(2)}</Text>
+        {/* Progress bar */}
+        <View style={styles.barOuter}>
+          <View style={styles.progressRow}>
+            <Text style={styles.progressLabel}>Progress</Text>
+            <Text style={styles.progressPct}>{Math.round(pct)}%</Text>
+          </View>
+          <View style={styles.barTrack}>
+            <View style={[styles.barFill, { width: `${pct}%` }]} />
+          </View>
         </View>
 
-        <View style={styles.barTrack}>
-          <View
-            style={[
-              styles.barFill,
-              { width: `${pct}%`, backgroundColor: complete ? '#4f6ef7' : '#48bb78' },
-            ]}
-          />
-        </View>
-
+        {/* Target / Saved footer */}
         <View style={styles.cardFooter}>
-          <Text style={styles.remainingText}>
-            {complete ? 'Goal reached! 🎉' : `$${remaining.toFixed(2)} remaining`}
-          </Text>
-          {item.deadline ? (
-            <Text style={styles.deadlineText}>By {item.deadline}</Text>
-          ) : null}
+          <View>
+            <Text style={styles.footerLabel}>Target</Text>
+            <Text style={styles.footerValue}>${target.toFixed(2)}</Text>
+          </View>
+          <View>
+            <Text style={styles.footerLabel}>Saved</Text>
+            <Text style={styles.footerValueCyan}>${current.toFixed(2)}</Text>
+          </View>
+          {item.deadline && (
+            <View>
+              <Text style={styles.footerLabel}>Deadline</Text>
+              <Text style={styles.footerValue}>{item.deadline}</Text>
+            </View>
+          )}
         </View>
 
+        {/* Action button */}
         <TouchableOpacity
-          style={styles.addMoneyBtn}
+          style={styles.detailBtn}
           onPress={() => { setMoneyGoal(item); setMoneyAmount(''); }}
           activeOpacity={0.75}
         >
-          <Text style={styles.addMoneyBtnText}>+ Add Money</Text>
+          <Text style={styles.detailBtnText}>+ Add Money</Text>
         </TouchableOpacity>
       </View>
     );
   }
 
   if (loading) {
-    return (
-      <SafeAreaView style={styles.centered}>
-        <ActivityIndicator size="large" color="#4f6ef7" />
-      </SafeAreaView>
-    );
+    return <SafeAreaView style={styles.centered}><ActivityIndicator size="large" color="#00E5FF" /></SafeAreaView>;
   }
 
   if (error) {
@@ -265,11 +224,18 @@ export default function GoalsScreen({ navigation }) {
     );
   }
 
+  // Aggregate progress
+  const totalSaved = goals.reduce((sum, g) => sum + parseFloat(g.current_amount ?? 0), 0);
+  const totalTarget = goals.reduce((sum, g) => sum + parseFloat(g.target_amount ?? 0), 0);
+  const aggPct = totalTarget > 0 ? Math.round((totalSaved / totalTarget) * 100) : 0;
+
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Goals</Text>
+        <View>
+          <Text style={styles.headerOverview}>Overview</Text>
+          <Text style={styles.headerTitle}>Wealth Goals</Text>
+        </View>
         <TouchableOpacity
           style={styles.addBtn}
           onPress={() => { setAddName(''); setAddTarget(''); setAddDeadline(''); setAddVisible(true); }}
@@ -283,10 +249,7 @@ export default function GoalsScreen({ navigation }) {
         <View style={styles.emptyContainer}>
           <Text style={styles.emptyIcon}>◎</Text>
           <Text style={styles.emptyText}>No goals yet</Text>
-          <TouchableOpacity
-            style={styles.emptyButton}
-            onPress={() => setAddVisible(true)}
-          >
+          <TouchableOpacity style={styles.emptyButton} onPress={() => setAddVisible(true)}>
             <Text style={styles.emptyButtonText}>Create a Goal</Text>
           </TouchableOpacity>
         </View>
@@ -297,69 +260,35 @@ export default function GoalsScreen({ navigation }) {
           renderItem={renderGoal}
           contentContainerStyle={styles.listContent}
           ItemSeparatorComponent={() => <View style={styles.separator} />}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={() => fetchGoals(true)}
-              tintColor="#4f6ef7"
-            />
-          }
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => fetchGoals(true)} tintColor="#00E5FF" />}
+          ListHeaderComponent={goals.length > 0 ? (
+            <View style={styles.statsCard}>
+              <Text style={styles.statsLabel}>Aggregate Progress</Text>
+              <View style={styles.statsRow}>
+                <Text style={styles.statsPct}>{aggPct}%</Text>
+                <Text style={styles.statsCompleted}>Completed</Text>
+              </View>
+            </View>
+          ) : null}
         />
       )}
 
       {/* Add Goal Modal */}
       <Modal visible={addVisible} transparent animationType="slide" onRequestClose={() => setAddVisible(false)}>
-        <KeyboardAvoidingView
-          style={styles.modalOverlay}
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        >
+        <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
           <View style={styles.modalSheet}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>New Goal</Text>
-              <TouchableOpacity onPress={() => setAddVisible(false)}>
-                <Text style={styles.modalClose}>✕</Text>
-              </TouchableOpacity>
+              <TouchableOpacity onPress={() => setAddVisible(false)}><Text style={styles.modalClose}>✕</Text></TouchableOpacity>
             </View>
-
             <Text style={styles.inputLabel}>Goal name</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="e.g. AirPods"
-              placeholderTextColor="#4a5568"
-              value={addName}
-              onChangeText={setAddName}
-              returnKeyType="next"
-            />
-
+            <TextInput style={styles.input} placeholder="e.g. AirPods" placeholderTextColor="#4a5568" value={addName} onChangeText={setAddName} returnKeyType="next" />
             <Text style={styles.inputLabel}>Target amount ($)</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="200.00"
-              placeholderTextColor="#4a5568"
-              value={addTarget}
-              onChangeText={setAddTarget}
-              keyboardType="decimal-pad"
-              returnKeyType="next"
-            />
-
+            <TextInput style={styles.input} placeholder="200.00" placeholderTextColor="#4a5568" value={addTarget} onChangeText={setAddTarget} keyboardType="decimal-pad" returnKeyType="next" />
             <Text style={styles.inputLabel}>Deadline (optional, YYYY-MM-DD)</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="2026-12-31"
-              placeholderTextColor="#4a5568"
-              value={addDeadline}
-              onChangeText={setAddDeadline}
-              returnKeyType="done"
-            />
-
-            <TouchableOpacity
-              style={[styles.submitBtn, addSaving && styles.submitBtnDisabled]}
-              onPress={handleAddGoal}
-              disabled={addSaving}
-            >
-              {addSaving
-                ? <ActivityIndicator size="small" color="#fff" />
-                : <Text style={styles.submitBtnText}>Create Goal</Text>}
+            <TextInput style={styles.input} placeholder="2026-12-31" placeholderTextColor="#4a5568" value={addDeadline} onChangeText={setAddDeadline} returnKeyType="done" />
+            <TouchableOpacity style={[styles.submitBtn, addSaving && styles.submitBtnDisabled]} onPress={handleAddGoal} disabled={addSaving}>
+              {addSaving ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.submitBtnText}>Create Goal</Text>}
             </TouchableOpacity>
           </View>
         </KeyboardAvoidingView>
@@ -367,42 +296,17 @@ export default function GoalsScreen({ navigation }) {
 
       {/* Add Money Modal */}
       <Modal visible={!!moneyGoal} transparent animationType="slide" onRequestClose={() => setMoneyGoal(null)}>
-        <KeyboardAvoidingView
-          style={styles.modalOverlay}
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        >
+        <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
           <View style={styles.modalSheet}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Add Money</Text>
-              <TouchableOpacity onPress={() => setMoneyGoal(null)}>
-                <Text style={styles.modalClose}>✕</Text>
-              </TouchableOpacity>
+              <TouchableOpacity onPress={() => setMoneyGoal(null)}><Text style={styles.modalClose}>✕</Text></TouchableOpacity>
             </View>
-
-            {moneyGoal && (
-              <Text style={styles.moneyGoalName}>{moneyGoal.name}</Text>
-            )}
-
+            {moneyGoal && <Text style={styles.moneyGoalName}>{moneyGoal.name}</Text>}
             <Text style={styles.inputLabel}>Amount to add ($)</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="0.00"
-              placeholderTextColor="#4a5568"
-              value={moneyAmount}
-              onChangeText={setMoneyAmount}
-              keyboardType="decimal-pad"
-              returnKeyType="done"
-              autoFocus
-            />
-
-            <TouchableOpacity
-              style={[styles.submitBtn, moneySaving && styles.submitBtnDisabled]}
-              onPress={handleAddMoney}
-              disabled={moneySaving}
-            >
-              {moneySaving
-                ? <ActivityIndicator size="small" color="#fff" />
-                : <Text style={styles.submitBtnText}>Add Money</Text>}
+            <TextInput style={styles.input} placeholder="0.00" placeholderTextColor="#4a5568" value={moneyAmount} onChangeText={setMoneyAmount} keyboardType="decimal-pad" returnKeyType="done" autoFocus />
+            <TouchableOpacity style={[styles.submitBtn, moneySaving && styles.submitBtnDisabled]} onPress={handleAddMoney} disabled={moneySaving}>
+              {moneySaving ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.submitBtnText}>Add Money</Text>}
             </TouchableOpacity>
           </View>
         </KeyboardAvoidingView>
@@ -412,248 +316,75 @@ export default function GoalsScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#1a1a2e',
-  },
-  centered: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#1a1a2e',
-    paddingHorizontal: 28,
-  },
+  container: { flex: 1, backgroundColor: '#121318' },
+  centered: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#121318', paddingHorizontal: 28 },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    backgroundColor: '#16213e',
-    borderBottomWidth: 1,
-    borderBottomColor: '#2a2a4a',
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingHorizontal: 24, paddingVertical: 16,
+    backgroundColor: 'rgba(18,19,24,0.7)', borderBottomWidth: 1, borderBottomColor: 'rgba(59,73,76,0.15)',
   },
-  headerTitle: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: '#f0f4f8',
+  headerOverview: { fontSize: 10, fontWeight: '600', color: '#bac9cc', letterSpacing: 2, textTransform: 'uppercase', marginBottom: 2 },
+  headerTitle: { fontSize: 26, fontWeight: '700', color: '#e3e1e9', letterSpacing: -0.5 },
+  addBtn: { width: 32, height: 32, borderRadius: 8, backgroundColor: '#00E5FF', alignItems: 'center', justifyContent: 'center' },
+  addBtnText: { color: '#001f24', fontSize: 22, lineHeight: 26, fontWeight: '400' },
+  // Stats card
+  statsCard: {
+    marginHorizontal: 0, marginBottom: 16,
+    padding: 20, backgroundColor: '#1a1b21',
+    borderLeftWidth: 2, borderLeftColor: '#00E5FF', borderRadius: 8,
   },
-  addBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#4f6ef7',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  addBtnText: {
-    color: '#fff',
-    fontSize: 22,
-    lineHeight: 26,
-    fontWeight: '400',
-  },
-  listContent: {
-    padding: 16,
-    paddingBottom: 32,
-  },
-  separator: {
-    height: 12,
-  },
+  statsLabel: { fontSize: 10, fontWeight: '600', color: '#bac9cc', textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 6 },
+  statsRow: { flexDirection: 'row', alignItems: 'baseline', gap: 8 },
+  statsPct: { fontSize: 28, fontWeight: '700', color: '#00E5FF', letterSpacing: -0.5 },
+  statsCompleted: { fontSize: 14, color: '#bac9cc' },
+  listContent: { padding: 24, paddingBottom: 32 },
+  separator: { height: 16 },
+  // Goal card
   card: {
-    backgroundColor: '#16213e',
-    borderRadius: 14,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#2a2a4a',
+    backgroundColor: '#1e1f25', borderRadius: 8, padding: 20,
+    borderWidth: 1, borderColor: 'rgba(59,73,76,0.1)',
   },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  goalName: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#f0f4f8',
-    flex: 1,
-    marginRight: 8,
-  },
-  deleteBtn: {
-    fontSize: 14,
-    color: '#fc8181',
-    fontWeight: '600',
-  },
-  amountRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    marginBottom: 10,
-  },
-  currentAmount: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#f0f4f8',
-  },
-  targetAmount: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#a0aec0',
-  },
-  barTrack: {
-    height: 8,
-    backgroundColor: '#2a2a4a',
-    borderRadius: 4,
-    overflow: 'hidden',
-    marginBottom: 10,
-  },
-  barFill: {
-    height: '100%',
-    borderRadius: 4,
-  },
+  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 },
+  goalName: { fontSize: 18, fontWeight: '700', color: '#e3e1e9', letterSpacing: -0.3 },
+  goalSubLabel: { fontSize: 11, color: '#bac9cc', marginTop: 2, textTransform: 'uppercase', letterSpacing: 0.5 },
+  deleteBtn: { fontSize: 14, color: '#ffb4ab', fontWeight: '600', paddingTop: 2 },
+  barOuter: { marginBottom: 16 },
+  progressRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+  progressLabel: { fontSize: 11, color: '#bac9cc', textTransform: 'uppercase', letterSpacing: 0.5 },
+  progressPct: { fontSize: 17, fontWeight: '700', color: '#00E5FF' },
+  barTrack: { height: 5, backgroundColor: '#34343a', borderRadius: 3, overflow: 'hidden' },
+  barFill: { height: '100%', borderRadius: 3, backgroundColor: '#00E5FF' },
   cardFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
+    flexDirection: 'row', gap: 24, marginBottom: 16,
+    paddingTop: 14, borderTopWidth: 1, borderTopColor: 'rgba(59,73,76,0.1)',
   },
-  remainingText: {
-    fontSize: 13,
-    color: '#a0aec0',
+  footerLabel: { fontSize: 10, color: '#bac9cc', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 2 },
+  footerValue: { fontSize: 14, fontWeight: '600', color: '#e3e1e9' },
+  footerValueCyan: { fontSize: 14, fontWeight: '600', color: '#00E5FF' },
+  detailBtn: {
+    height: 36, borderRadius: 20, borderWidth: 1,
+    borderColor: 'rgba(59,73,76,0.3)',
+    alignItems: 'center', justifyContent: 'center',
+    paddingHorizontal: 16, alignSelf: 'flex-start',
   },
-  deadlineText: {
-    fontSize: 12,
-    color: '#a0aec0',
-  },
-  addMoneyBtn: {
-    height: 38,
-    backgroundColor: 'rgba(79,110,247,0.2)',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#4f6ef7',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  addMoneyBtnText: {
-    color: '#4f6ef7',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 24,
-  },
-  emptyIcon: {
-    fontSize: 48,
-    marginBottom: 12,
-    color: '#4a5568',
-  },
-  emptyText: {
-    fontSize: 15,
-    color: '#a0aec0',
-    marginBottom: 20,
-  },
-  emptyButton: {
-    height: 44,
-    paddingHorizontal: 24,
-    backgroundColor: '#4f6ef7',
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  emptyButtonText: {
-    color: '#fff',
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  errorText: {
-    fontSize: 15,
-    color: '#fc8181',
-    textAlign: 'center',
-    marginBottom: 20,
-  },
-  retryButton: {
-    height: 44,
-    paddingHorizontal: 32,
-    backgroundColor: '#4f6ef7',
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  retryButtonText: {
-    color: '#fff',
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  // Modal
-  modalOverlay: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0,0,0,0.6)',
-  },
-  modalSheet: {
-    backgroundColor: '#16213e',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    padding: 24,
-    paddingBottom: 40,
-    borderTopWidth: 1,
-    borderColor: '#2a2a4a',
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#f0f4f8',
-  },
-  modalClose: {
-    fontSize: 16,
-    color: '#a0aec0',
-    padding: 4,
-  },
-  moneyGoalName: {
-    fontSize: 14,
-    color: '#a0aec0',
-    marginBottom: 16,
-    marginTop: -8,
-  },
-  inputLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#a0aec0',
-    marginBottom: 6,
-  },
-  input: {
-    height: 48,
-    backgroundColor: '#1a1a2e',
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#2a2a4a',
-    paddingHorizontal: 14,
-    color: '#f0f4f8',
-    fontSize: 15,
-    marginBottom: 14,
-  },
-  submitBtn: {
-    height: 50,
-    backgroundColor: '#4f6ef7',
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 4,
-  },
-  submitBtnDisabled: {
-    opacity: 0.6,
-  },
-  submitBtnText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '700',
-  },
+  detailBtnText: { color: '#bac9cc', fontSize: 12, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 },
+  emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 24 },
+  emptyIcon: { fontSize: 48, marginBottom: 12, color: '#34343a' },
+  emptyText: { fontSize: 14, color: '#bac9cc', marginBottom: 20 },
+  emptyButton: { height: 44, paddingHorizontal: 24, backgroundColor: '#00E5FF', borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+  emptyButtonText: { color: '#001f24', fontSize: 14, fontWeight: '700' },
+  errorText: { fontSize: 15, color: '#ffb4ab', textAlign: 'center', marginBottom: 20 },
+  retryButton: { height: 44, paddingHorizontal: 32, backgroundColor: '#00E5FF', borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+  retryButtonText: { color: '#001f24', fontSize: 15, fontWeight: '700' },
+  modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.7)' },
+  modalSheet: { backgroundColor: '#1e1f25', borderTopLeftRadius: 16, borderTopRightRadius: 16, padding: 24, paddingBottom: 40 },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
+  modalTitle: { fontSize: 18, fontWeight: '700', color: '#e3e1e9' },
+  modalClose: { fontSize: 16, color: '#bac9cc', padding: 4 },
+  moneyGoalName: { fontSize: 14, color: '#bac9cc', marginBottom: 16, marginTop: -8 },
+  inputLabel: { fontSize: 12, fontWeight: '600', color: '#bac9cc', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 },
+  input: { height: 48, backgroundColor: '#121318', borderRadius: 8, borderWidth: 1, borderColor: 'rgba(59,73,76,0.3)', paddingHorizontal: 14, color: '#e3e1e9', fontSize: 15, marginBottom: 14 },
+  submitBtn: { height: 50, backgroundColor: '#00E5FF', borderRadius: 8, alignItems: 'center', justifyContent: 'center', marginTop: 4 },
+  submitBtnDisabled: { opacity: 0.6 },
+  submitBtnText: { color: '#001f24', fontSize: 16, fontWeight: '700' },
 });

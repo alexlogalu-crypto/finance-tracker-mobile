@@ -8,7 +8,7 @@ import {
   Alert,
   SafeAreaView,
 } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { storage } from '../utils/storage';
 
 const BASE = 'https://finance-tracker-production-e13e.up.railway.app/api/v1';
 
@@ -47,7 +47,7 @@ export default function TransactionDetailScreen({ route, navigation }) {
   async function confirmDelete() {
     setDeleting(true);
     try {
-      const token = await AsyncStorage.getItem('access_token');
+      const token = await storage.getItem('access_token');
       console.log('[Delete] token:', token ? 'present' : 'MISSING');
       console.log('[Delete] url:', `${BASE}/transactions/${transaction.id}`);
       const res = await fetch(`${BASE}/transactions/${transaction.id}`, {
@@ -56,7 +56,7 @@ export default function TransactionDetailScreen({ route, navigation }) {
       });
       console.log('[Delete] status:', res.status);
       if (res.status === 401) {
-        await AsyncStorage.removeItem('access_token');
+        await storage.removeItem('access_token');
         navigation.replace('Login');
         return;
       }

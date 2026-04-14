@@ -11,22 +11,101 @@ import {
   Alert,
   RefreshControl,
 } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { FontAwesome } from '@expo/vector-icons';
+import Svg, { Path, Defs, LinearGradient, Stop } from 'react-native-svg';
+import { storage } from '../utils/storage';
 import { getStreak } from '../utils/streak';
+import { getCategoryEmoji } from '../utils/categoryIcon';
 import { useBudgetAlert } from '../context/BudgetAlertContext';
-import TrendChart from '../components/TrendChart';
 
-function CategoryIcon({ icon, color }) {
-  const bg = color ? `${color}33` : '#4f6ef733';
-  const hasIcon = icon && FontAwesome.glyphMap[icon] !== undefined;
+const QUICK_ACTIONS = [
+  { label: 'Expense', icon: '↑', type: 'expense' },
+  { label: 'Income', icon: '↓', type: 'income' },
+  { label: 'History', icon: '⏱', type: null },
+];
+
+function buildChartPaths(trend) {
+  if (!trend || trend.length < 2) return null;
+  const W = 400, H = 100, PAD = 14;
+  const nets = trend.map(d => parseFloat(d.net ?? (d.income - d.expenses) ?? 0));
+  const min = Math.min(...nets);
+  const max = Math.max(...nets);
+  const range = max - min || 1;
+  const pts = nets.map((v, i) => ({
+    x: (i / (nets.length - 1)) * W,
+    y: H - PAD - ((v - min) / range) * (H - PAD * 2),
+  }));
+  let line = `M ${pts[0].x.toFixed(1)} ${pts[0].y.toFixed(1)}`;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const cpx = ((pts[i].x + pts[i + 1].x) / 2).toFixed(1);
+    line += ` C ${cpx} ${pts[i].y.toFixed(1)}, ${cpx} ${pts[i + 1].y.toFixed(1)}, ${pts[i + 1].x.toFixed(1)} ${pts[i + 1].y.toFixed(1)}`;
+  }
+  const area = line + ` L ${pts[pts.length - 1].x} ${H} L 0 ${H} Z`;
+  return { line, area };
+}
+
+function MiniChart({ trend }) {
+  const paths = buildChartPaths(trend);
   return (
-    <View style={[styles.iconCircle, { backgroundColor: bg }]}>
-      {hasIcon ? (
-        <FontAwesome name={icon} size={18} color={color || '#4f6ef7'} />
-      ) : (
-        <View style={[styles.iconDot, { backgroundColor: color || '#4f6ef7' }]} />
-      )}
+    <View style={styles.chartContainer}>
+      <Svg width="100%" height="100%" viewBox="0 0 400 100" preserveAspectRatio="none">
+        <Defs>
+          <LinearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1">
+            <Stop offset="0%" stopColor="#00E5FF" stopOpacity="0.25" />
+            <Stop offset="100%" stopColor="#00E5FF" stopOpacity="0" />
+          </LinearGradient>
+        </Defs>
+        {paths ? (
+          <>
+            <Path d={paths.area} fill="url(#chartGrad)" />
+            <Path d={paths.line} fill="none" stroke="#00E5FF" strokeWidth="2.5" />
+          </>
+        ) : (
+          <>
+            <Path
+              d="M0 80 Q 50 20, 100 70 T 200 40 T 300 80 T 400 30 V 100 H 0 Z"
+              fill="url(#chartGrad)"
+            />
+            <Path
+              d="M0 80 Q 50 20, 100 70 T 200 40 T 300 80 T 400 30"
+              fill="none" stroke="#00E5FF" strokeWidth="2.5"
+            />
+          </>
+        )}
+      </Svg>
+    </View>
+  );
+}
+
+function getCategoryIcon(categoryName, type) {
+  const name = (categoryName || '').toLowerCase();
+  if (name.includes('coffee') || name.includes('cafe') || name.includes('starbucks')) return 'coffee';
+  if (name.includes('food') || name.includes('restaurant') || name.includes('dining') || name.includes('eat')) return 'utensils';
+  if (name.includes('grocery') || name.includes('groceries') || name.includes('supermarket')) return 'shopping-basket';
+  if (name.includes('housing') || name.includes('rent') || name.includes('mortgage') || name.includes('apartment')) return 'home';
+  if (name.includes('entertainment') || name.includes('movie') || name.includes('film') || name.includes('game')) return 'film';
+  if (name.includes('shopping') || name.includes('retail') || name.includes('store') || name.includes('amazon') || name.includes('apple')) return 'shopping-bag';
+  if (name.includes('transport') || name.includes('gas') || name.includes('fuel') || name.includes('car') || name.includes('uber') || name.includes('lyft')) return 'car';
+  if (name.includes('health') || name.includes('medical') || name.includes('doctor') || name.includes('pharmacy')) return 'heartbeat';
+  if (name.includes('salary') || name.includes('paycheck') || name.includes('direct deposit') || name.includes('wage')) return 'money-bill-wave';
+  if (name.includes('utility') || name.includes('electric') || name.includes('water') || name.includes('internet') || name.includes('phone')) return 'bolt';
+  if (name.includes('travel') || name.includes('vacation') || name.includes('flight') || name.includes('hotel')) return 'plane';
+  if (name.includes('education') || name.includes('school') || name.includes('tuition')) return 'graduation-cap';
+  if (name.includes('fitness') || name.includes('gym') || name.includes('sport')) return 'dumbbell';
+  if (name.includes('subscription') || name.includes('software') || name.includes('netflix') || name.includes('spotify') || name.includes('adobe')) return 'laptop';
+  if (name.includes('invest') || name.includes('stock') || name.includes('dividend')) return 'chart-line';
+  if (name.includes('crypto') || name.includes('bitcoin') || name.includes('eth')) return 'coins';
+  if (name.includes('insurance')) return 'shield-alt';
+  if (name.includes('gift') || name.includes('donation')) return 'gift';
+  if (type === 'income') return 'money-bill-wave';
+  return 'tag';
+}
+
+function TxIcon({ categoryName, type }) {
+  const isIncome = type === 'income';
+  const iconName = getCategoryIcon(categoryName, type);
+  return (
+    <View style={[styles.txIconBox, isIncome && styles.txIconBoxIncome]}>
+      <Text style={{ fontSize: 18 }}>{getCategoryEmoji(iconName)}</Text>
     </View>
   );
 }
@@ -38,7 +117,6 @@ export default function DashboardScreen({ navigation }) {
   const [error, setError] = useState(null);
   const [streak, setStreak] = useState(0);
   const [trendData, setTrendData] = useState(null);
-  const [trendLoading, setTrendLoading] = useState(false);
   const { setAlertCount } = useBudgetAlert();
 
   const fetchSummary = useCallback(async (isRefresh = false) => {
@@ -46,12 +124,12 @@ export default function DashboardScreen({ navigation }) {
     else setLoading(true);
     setError(null);
     try {
-      const token = await AsyncStorage.getItem('access_token');
+      const token = await storage.getItem('access_token');
       const res = await fetch('https://finance-tracker-production-e13e.up.railway.app/api/v1/summary', {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.status === 401) {
-        await AsyncStorage.removeItem('access_token');
+        await storage.removeItem('access_token');
         navigation.getParent()?.replace('Login');
         return;
       }
@@ -61,10 +139,6 @@ export default function DashboardScreen({ navigation }) {
       }
       const data = await res.json();
       setSummary(data);
-      console.log('overview:', JSON.stringify(data.overview));
-      console.log('recent_transactions count:', data.recent_transactions?.length);
-      console.log('spending_by_category:', JSON.stringify(data.spending_by_category));
-      console.log('budget_performance:', JSON.stringify(data.budget_performance));
     } catch (err) {
       setError(err.message || 'Failed to load summary.');
     } finally {
@@ -74,26 +148,17 @@ export default function DashboardScreen({ navigation }) {
   }, [navigation]);
 
   const fetchTrend = useCallback(async () => {
-    setTrendLoading(true);
     try {
-      const token = await AsyncStorage.getItem('access_token');
+      const token = await storage.getItem('access_token');
       const res = await fetch(
         'https://finance-tracker-production-e13e.up.railway.app/api/v1/summary/monthly-trend?months=6',
         { headers: { Authorization: `Bearer ${token}` } }
       );
       if (res.ok) {
         const data = await res.json();
-        console.log('trendData:', JSON.stringify(data.trend));
         setTrendData(data.trend ?? []);
-      } else {
-        console.log('trend fetch failed:', res.status);
       }
-    } catch (err) {
-      console.log('trend fetch error:', err.message);
-    } finally {
-      setTrendLoading(false);
-      console.log('trendLoading: false');
-    }
+    } catch (_) {}
   }, []);
 
   useFocusEffect(
@@ -104,8 +169,17 @@ export default function DashboardScreen({ navigation }) {
     }, [fetchSummary, fetchTrend])
   );
 
+  const budgetAlerts = useMemo(
+    () => (summary?.budget_performance ?? []).filter((item) => parseFloat(item.percentage_used) >= 80),
+    [summary]
+  );
+
+  useEffect(() => {
+    setAlertCount(budgetAlerts.length);
+  }, [budgetAlerts.length, setAlertCount]);
+
   async function handleLogout() {
-    await AsyncStorage.removeItem('access_token');
+    await storage.removeItem('access_token');
     navigation.getParent()?.replace('Login');
   }
 
@@ -116,41 +190,39 @@ export default function DashboardScreen({ navigation }) {
     ]);
   }
 
-  const budgetAlerts = useMemo(
-    () =>
-      (summary?.budget_performance ?? []).filter(
-        (item) => parseFloat(item.percentage_used) >= 80
-      ),
-    [summary]
-  );
-
-  useEffect(() => {
-    setAlertCount(budgetAlerts.length);
-  }, [budgetAlerts.length, setAlertCount]);
-
   function formatCurrency(amount) {
     return `$${Math.abs(amount ?? 0).toFixed(2)}`;
   }
 
-  function renderTransaction({ item }) {
+  function handleQuickAction(action) {
+    if (action.type === null) {
+      navigation.navigate('Transactions');
+    } else {
+      navigation.navigate('AddTransaction', { defaultType: action.type });
+    }
+  }
+
+  function renderTransaction({ item, index }) {
     const isIncome = item.type === 'income';
+    const isFirst = index === 0;
     return (
       <TouchableOpacity
-        style={styles.txRow}
+        style={[styles.txRow, isFirst && styles.txRowFirst]}
         onPress={() => navigation.navigate('TransactionDetail', { transaction: item })}
         activeOpacity={0.75}
       >
-        <CategoryIcon icon={item.category?.icon} color={item.category?.color} />
+        <TxIcon categoryName={item.category?.name} type={item.type} />
         <View style={styles.txLeft}>
           <Text style={styles.txDescription} numberOfLines={1}>
             {item.description || item.category?.name || 'Transaction'}
           </Text>
           <Text style={styles.txDate}>{item.date || ''}</Text>
         </View>
-        <Text style={[styles.txAmount, isIncome ? styles.income : styles.expense]}>
-          {isIncome ? '+' : '-'}
-          {formatCurrency(item.amount)}
-        </Text>
+        <View style={styles.txRight}>
+          <Text style={[styles.txAmount, isIncome ? styles.incomeText : styles.expenseText]}>
+            {isIncome ? '+' : '-'}{formatCurrency(item.amount)}
+          </Text>
+        </View>
       </TouchableOpacity>
     );
   }
@@ -158,7 +230,7 @@ export default function DashboardScreen({ navigation }) {
   if (loading) {
     return (
       <SafeAreaView style={styles.centered}>
-        <ActivityIndicator size="large" color="#4f6ef7" />
+        <ActivityIndicator size="large" color="#00E5FF" />
       </SafeAreaView>
     );
   }
@@ -170,8 +242,8 @@ export default function DashboardScreen({ navigation }) {
         <TouchableOpacity style={styles.retryButton} onPress={fetchSummary}>
           <Text style={styles.retryButtonText}>Retry</Text>
         </TouchableOpacity>
-        <TouchableOpacity onPress={confirmLogout} style={styles.logoutLinkContainer}>
-          <Text style={styles.logoutLink}>Log out</Text>
+        <TouchableOpacity onPress={confirmLogout} style={{ marginTop: 16 }}>
+          <Text style={{ fontSize: 14, color: '#ffb4ab', fontWeight: '500' }}>Log out</Text>
         </TouchableOpacity>
       </SafeAreaView>
     );
@@ -185,121 +257,94 @@ export default function DashboardScreen({ navigation }) {
     <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Overview</Text>
-        <View style={styles.headerActions}>
-          <TouchableOpacity
-            style={styles.addBtn}
-            onPress={() => navigation.navigate('AddTransaction')}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          >
-            <Text style={styles.addBtnText}>+</Text>
-          </TouchableOpacity>
+        <Text style={styles.headerTitle}>Wealth Ledger</Text>
+        <View style={styles.headerRight}>
+          {streak >= 2 && (
+            <View style={styles.streakPill}>
+              <Text style={styles.streakText}>🔥 {streak}d</Text>
+            </View>
+          )}
           <TouchableOpacity onPress={confirmLogout} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
             <Text style={styles.logoutText}>Log out</Text>
           </TouchableOpacity>
         </View>
       </View>
 
-      {/* Streak pill */}
-      {streak >= 2 && (
-        <View style={styles.streakPill}>
-          <Text style={styles.streakText}>🔥 {streak} day streak</Text>
-        </View>
-      )}
-
-      {/* Hero balance card */}
-      <View style={styles.heroCard}>
-        <Text style={styles.heroLabel}>Total Balance</Text>
-        <Text style={styles.heroAmount}>
-          {net < 0 ? '-' : ''}${Math.abs(net).toFixed(2)}
-        </Text>
-        <View style={styles.heroPill}>
-          <Text style={styles.heroPillIncome}>+${income.toFixed(2)} in</Text>
-          <Text style={styles.heroPillDot}> · </Text>
-          <Text style={styles.heroPillExpense}>-${expenses.toFixed(2)} out</Text>
-        </View>
-      </View>
-
-      {/* Spending Trend chart */}
-      {trendLoading ? (
-        <View style={styles.trendPlaceholder}>
-          <ActivityIndicator size="small" color="#4f6ef7" />
-        </View>
-      ) : (
-        <TrendChart data={trendData} />
-      )}
-
-      {/* Spending Breakdown */}
-      {summary?.spending_by_category?.length > 0 && (
-        <View style={styles.breakdownContainer}>
-          <Text style={styles.sectionTitle}>Spending Breakdown</Text>
-          {summary.spending_by_category.map((item, index) => {
-            const barPct = Math.min(Math.max(parseFloat(item.percentage_of_expenses) || 0, 0), 100);
-            return (
-            <View key={index} style={styles.breakdownRow}>
-              <View style={[styles.dot, { backgroundColor: item.color || '#4f6ef7' }]} />
-              <Text style={styles.breakdownCategory} numberOfLines={1}>
-                {item.category_name}
+      <FlatList
+        data={summary?.recent_transactions ?? []}
+        keyExtractor={(item, index) => item.id?.toString() ?? index.toString()}
+        renderItem={renderTransaction}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => fetchSummary(true)}
+            tintColor="#00E5FF"
+          />
+        }
+        ListHeaderComponent={
+          <>
+            {/* Hero balance */}
+            <View style={styles.heroSection}>
+              <Text style={styles.heroLabel}>Portfolio Value</Text>
+              <Text style={styles.heroAmount}>
+                {net < 0 ? '-' : ''}${Math.abs(net).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </Text>
-              <View style={styles.barTrack}>
-                <View
-                  style={[
-                    styles.barFill,
-                    { width: `${barPct}%`, backgroundColor: item.color || '#4f6ef7' },
-                  ]}
-                />
-              </View>
-              <Text style={styles.breakdownAmount}>${parseFloat(item.total).toFixed(2)}</Text>
+              <MiniChart trend={trendData} />
             </View>
-            );
-          })}
-        </View>
-      )}
 
-      {/* Budget alert card */}
-      {budgetAlerts.length > 0 && (
-        <View style={styles.alertCard}>
-          <Text style={styles.alertTitle}>Budget Alert</Text>
-          {budgetAlerts.map((item, i) => {
-            const pct = parseFloat(item.percentage_used);
-            const name = item.category?.name || item.category_name || item.name || 'Category';
-            return (
-              <Text key={i} style={[styles.alertItem, pct > 100 && styles.alertOverBudget]}>
-                {name} — {pct > 100 ? 'OVER BUDGET' : `${Math.round(pct)}% used`}
-              </Text>
-            );
-          })}
-        </View>
-      )}
+            {/* Quick Actions */}
+            <View style={styles.quickActions}>
+              {QUICK_ACTIONS.map((action) => (
+                <TouchableOpacity
+                  key={action.label}
+                  style={styles.quickBtn}
+                  onPress={() => handleQuickAction(action)}
+                  activeOpacity={0.75}
+                >
+                  <View style={styles.quickBtnIcon}>
+                    <Text style={{ fontSize: 18, color: '#00E5FF' }}>{action.icon}</Text>
+                  </View>
+                  <Text style={styles.quickBtnLabel}>{action.label}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
 
-      {/* Recent transactions */}
-      <Text style={styles.sectionTitle}>Recent Transactions</Text>
-      {summary?.recent_transactions?.length ? (
-        <FlatList
-          data={summary.recent_transactions}
-          keyExtractor={(item, index) => item.id?.toString() ?? index.toString()}
-          renderItem={renderTransaction}
-          contentContainerStyle={styles.listContent}
-          ItemSeparatorComponent={() => <View style={styles.separator} />}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={() => fetchSummary(true)}
-              tintColor="#4f6ef7"
-            />
-          }
-        />
-      ) : (
-        <View style={styles.emptyContainer}>
-          <Text style={styles.emptyText}>No recent transactions</Text>
-          <TouchableOpacity
-            style={styles.emptyButton}
-            onPress={() => navigation.navigate('AddTransaction')}
-          >
-            <Text style={styles.emptyButtonText}>Add Transaction</Text>
-          </TouchableOpacity>
-        </View>
-      )}
+            {/* Budget alert */}
+            {budgetAlerts.length > 0 && (
+              <View style={styles.alertCard}>
+                <Text style={styles.alertTitle}>Budget Alert</Text>
+                {budgetAlerts.map((item, i) => {
+                  const pct = parseFloat(item.percentage_used);
+                  const name = item.category?.name || item.category_name || item.name || 'Category';
+                  return (
+                    <Text key={i} style={[styles.alertItem, pct > 100 && styles.alertOverBudget]}>
+                      {name} — {pct > 100 ? 'OVER BUDGET' : `${Math.round(pct)}% used`}
+                    </Text>
+                  );
+                })}
+              </View>
+            )}
+
+            {/* Section header */}
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Recent Activity</Text>
+              <TouchableOpacity onPress={() => navigation.navigate('Transactions')}>
+                <Text style={styles.sectionLink}>View Ledger</Text>
+              </TouchableOpacity>
+            </View>
+          </>
+        }
+        ListEmptyComponent={
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyText}>No recent transactions</Text>
+            <TouchableOpacity style={styles.emptyButton} onPress={() => navigation.navigate('AddTransaction')}>
+              <Text style={styles.emptyButtonText}>Add Transaction</Text>
+            </TouchableOpacity>
+          </View>
+        }
+        contentContainerStyle={styles.listContent}
+      />
     </SafeAreaView>
   );
 }
@@ -307,156 +352,199 @@ export default function DashboardScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1a1a2e',
+    backgroundColor: '#121318',
   },
   centered: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#1a1a2e',
+    backgroundColor: '#121318',
     paddingHorizontal: 28,
   },
+  // Header
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: 24,
     paddingVertical: 16,
-    backgroundColor: '#16213e',
+    backgroundColor: 'rgba(18,19,24,0.7)',
     borderBottomWidth: 1,
-    borderBottomColor: '#2a2a4a',
+    borderBottomColor: 'rgba(59,73,76,0.15)',
   },
   headerTitle: {
     fontSize: 22,
     fontWeight: '700',
-    color: '#f0f4f8',
+    color: '#00E5FF',
+    letterSpacing: -0.5,
   },
-  headerActions: {
+  headerRight: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
-  },
-  addBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#4f6ef7',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  addBtnText: {
-    color: '#fff',
-    fontSize: 22,
-    lineHeight: 26,
-    fontWeight: '400',
-  },
-  logoutText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#fc8181',
+    gap: 12,
   },
   streakPill: {
-    alignSelf: 'flex-start',
-    marginHorizontal: 20,
-    marginTop: 10,
-    marginBottom: 2,
-    backgroundColor: '#2a2a4a',
+    backgroundColor: '#1e1f25',
     borderRadius: 20,
-    paddingHorizontal: 12,
-    paddingVertical: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
   },
   streakText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
     color: '#f97316',
   },
-  heroCard: {
-    marginHorizontal: 16,
-    marginTop: 16,
-    marginBottom: 4,
-    backgroundColor: '#16213e',
-    borderRadius: 20,
-    paddingVertical: 28,
-    paddingHorizontal: 28,
-    alignItems: 'center',
-  },
-  heroLabel: {
+  logoutText: {
     fontSize: 13,
     fontWeight: '500',
-    color: '#718096',
-    marginBottom: 8,
-    letterSpacing: 0.5,
+    color: '#bac9cc',
+  },
+  // Hero
+  heroSection: {
+    paddingHorizontal: 24,
+    paddingTop: 24,
+    paddingBottom: 8,
+  },
+  heroLabel: {
+    fontSize: 11,
+    fontWeight: '500',
+    color: '#bac9cc',
+    letterSpacing: 2,
     textTransform: 'uppercase',
+    marginBottom: 4,
   },
   heroAmount: {
-    fontSize: 48,
+    fontSize: 46,
     fontWeight: '700',
-    color: '#fff',
-    lineHeight: 56,
+    color: '#e3e1e9',
+    letterSpacing: -1,
+    marginBottom: 4,
   },
-  heroPill: {
+  // Chart
+  chartContainer: {
+    height: 100,
+    width: '100%',
+    marginTop: 16,
+    backgroundColor: 'rgba(13,14,19,0.5)',
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  // Quick Actions
+  quickActions: {
     flexDirection: 'row',
+    paddingHorizontal: 24,
+    paddingTop: 20,
+    paddingBottom: 8,
+    gap: 10,
+  },
+  quickBtn: {
+    flex: 1,
+    backgroundColor: '#1a1b21',
+    borderRadius: 12,
+    paddingVertical: 14,
     alignItems: 'center',
-    marginTop: 12,
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    borderRadius: 20,
+    gap: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(59,73,76,0.1)',
+  },
+  quickBtnIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: 'rgba(0,229,255,0.05)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  quickBtnLabel: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#bac9cc',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  // Alert
+  alertCard: {
+    marginHorizontal: 24,
+    marginTop: 8,
+    marginBottom: 4,
+    backgroundColor: 'rgba(255,180,171,0.1)',
+    borderLeftWidth: 2,
+    borderLeftColor: '#ffb4ab',
+    borderRadius: 8,
+    paddingVertical: 12,
     paddingHorizontal: 14,
-    paddingVertical: 6,
   },
-  heroPillIncome: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#48bb78',
+  alertTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#ffb4ab',
+    marginBottom: 4,
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
   },
-  heroPillDot: {
-    fontSize: 13,
-    color: '#4a5568',
+  alertItem: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#ffb4ab',
+    marginTop: 2,
   },
-  heroPillExpense: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#fc8181',
+  alertOverBudget: {
+    fontWeight: '700',
   },
-  income: {
-    color: '#48bb78',
-  },
-  expense: {
-    color: '#fc8181',
+  // Section header
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
+    paddingHorizontal: 24,
+    paddingTop: 20,
+    paddingBottom: 12,
   },
   sectionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#f0f4f8',
-    paddingHorizontal: 20,
-    paddingBottom: 8,
-    paddingTop: 4,
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#e3e1e9',
+    letterSpacing: -0.3,
   },
+  sectionLink: {
+    fontSize: 12,
+    color: 'rgba(0,229,255,0.8)',
+    fontWeight: '500',
+  },
+  // Transaction rows
   listContent: {
-    paddingHorizontal: 16,
-    paddingBottom: 24,
+    paddingBottom: 32,
   },
   txRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#16213e',
-    paddingVertical: 13,
-    paddingHorizontal: 14,
-    borderRadius: 10,
+    backgroundColor: 'rgba(13,14,19,0.5)',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    marginHorizontal: 24,
+    marginBottom: 10,
+    borderRadius: 12,
   },
-  iconCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+  txRowFirst: {
+    borderLeftWidth: 2,
+    borderLeftColor: '#00E5FF',
+  },
+  txIconBox: {
+    width: 44,
+    height: 44,
+    borderRadius: 10,
+    backgroundColor: '#34343a',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
+    marginRight: 14,
     flexShrink: 0,
+    borderWidth: 1,
+    borderColor: 'rgba(59,73,76,0.15)',
+    overflow: 'hidden',
   },
-  iconDot: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
+  txIconBoxIncome: {
+    borderLeftWidth: 3,
+    borderLeftColor: '#00E5FF',
   },
   txLeft: {
     flex: 1,
@@ -464,144 +552,65 @@ const styles = StyleSheet.create({
   },
   txDescription: {
     fontSize: 14,
-    fontWeight: '500',
-    color: '#f0f4f8',
+    fontWeight: '600',
+    color: '#e3e1e9',
   },
   txDate: {
-    fontSize: 12,
-    color: '#a0aec0',
+    fontSize: 10,
+    color: '#bac9cc',
     marginTop: 2,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  txRight: {
+    alignItems: 'flex-end',
   },
   txAmount: {
-    fontSize: 15,
-    fontWeight: '600',
+    fontSize: 14,
+    fontWeight: '700',
   },
-  separator: {
-    height: 8,
-  },
+  incomeText: { color: '#00E5FF' },
+  expenseText: { color: '#e3e1e9' },
   emptyContainer: {
     paddingTop: 40,
     alignItems: 'center',
     paddingHorizontal: 24,
   },
   emptyText: {
-    fontSize: 15,
-    color: '#a0aec0',
+    fontSize: 14,
+    color: '#bac9cc',
     marginBottom: 20,
   },
   emptyButton: {
     height: 44,
     paddingHorizontal: 24,
-    backgroundColor: '#4f6ef7',
-    borderRadius: 10,
+    backgroundColor: '#00E5FF',
+    borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
   },
   emptyButtonText: {
-    color: '#fff',
-    fontSize: 15,
-    fontWeight: '600',
+    color: '#001f24',
+    fontSize: 14,
+    fontWeight: '700',
   },
   errorText: {
     fontSize: 15,
-    color: '#fc8181',
+    color: '#ffb4ab',
     textAlign: 'center',
     marginBottom: 20,
   },
   retryButton: {
     height: 44,
     paddingHorizontal: 32,
-    backgroundColor: '#4f6ef7',
-    borderRadius: 10,
+    backgroundColor: '#00E5FF',
+    borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
   },
   retryButtonText: {
-    color: '#fff',
+    color: '#001f24',
     fontSize: 15,
-    fontWeight: '600',
-  },
-  logoutLinkContainer: {
-    marginTop: 16,
-  },
-  logoutLink: {
-    fontSize: 14,
-    color: '#fc8181',
-    fontWeight: '500',
-  },
-  trendPlaceholder: {
-    marginHorizontal: 16,
-    marginTop: 12,
-    marginBottom: 4,
-    height: 60,
-    backgroundColor: '#16213e',
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  breakdownContainer: {
-    paddingHorizontal: 16,
-    paddingBottom: 8,
-  },
-  breakdownRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 10,
-    gap: 8,
-  },
-  dot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    flexShrink: 0,
-  },
-  breakdownCategory: {
-    fontSize: 13,
-    color: '#f0f4f8',
-    width: 90,
-    flexShrink: 0,
-  },
-  barTrack: {
-    flex: 1,
-    height: 8,
-    backgroundColor: '#2a2a4a',
-    borderRadius: 4,
-    overflow: 'hidden',
-  },
-  barFill: {
-    height: '100%',
-    borderRadius: 4,
-  },
-  alertCard: {
-    marginHorizontal: 16,
-    marginBottom: 12,
-    backgroundColor: '#f97316',
-    borderRadius: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-  },
-  alertTitle: {
-    fontSize: 14,
     fontWeight: '700',
-    color: '#1a1a2e',
-    marginBottom: 6,
-  },
-  alertItem: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: '#1a1a2e',
-    marginTop: 2,
-  },
-  alertOverBudget: {
-    color: '#7f1d1d',
-    fontWeight: '700',
-  },
-  breakdownAmount: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#f0f4f8',
-    width: 72,
-    textAlign: 'right',
-    flexShrink: 0,
   },
 });

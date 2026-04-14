@@ -11,22 +11,8 @@ import {
   RefreshControl,
   TextInput,
 } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { FontAwesome } from '@expo/vector-icons';
-
-function CategoryIcon({ icon, color }) {
-  const bg = color ? `${color}33` : '#4f6ef733';
-  const hasIcon = icon && FontAwesome.glyphMap[icon] !== undefined;
-  return (
-    <View style={[styles.iconCircle, { backgroundColor: bg }]}>
-      {hasIcon ? (
-        <FontAwesome name={icon} size={18} color={color || '#4f6ef7'} />
-      ) : (
-        <View style={[styles.iconDot, { backgroundColor: color || '#4f6ef7' }]} />
-      )}
-    </View>
-  );
-}
+import { storage } from '../utils/storage';
+import { getCategoryEmoji } from '../utils/categoryIcon';
 
 const BASE = 'https://finance-tracker-production-e13e.up.railway.app/api/v1';
 
@@ -35,6 +21,72 @@ const TYPE_FILTERS = [
   { label: 'Income', value: 'income' },
   { label: 'Expenses', value: 'expense' },
 ];
+
+// Map category name → FontAwesome5 icon
+function getCategoryIcon(categoryName, type) {
+  const name = (categoryName || '').toLowerCase();
+  if (name.includes('coffee') || name.includes('cafe') || name.includes('starbucks')) return 'coffee';
+  if (name.includes('food') || name.includes('restaurant') || name.includes('dining') || name.includes('eat')) return 'utensils';
+  if (name.includes('grocery') || name.includes('groceries') || name.includes('supermarket')) return 'shopping-basket';
+  if (name.includes('housing') || name.includes('rent') || name.includes('mortgage') || name.includes('apartment')) return 'home';
+  if (name.includes('entertainment') || name.includes('movie') || name.includes('film') || name.includes('game')) return 'film';
+  if (name.includes('shopping') || name.includes('retail') || name.includes('store') || name.includes('amazon') || name.includes('apple')) return 'shopping-bag';
+  if (name.includes('transport') || name.includes('gas') || name.includes('fuel') || name.includes('car') || name.includes('uber') || name.includes('lyft')) return 'car';
+  if (name.includes('health') || name.includes('medical') || name.includes('doctor') || name.includes('pharmacy')) return 'heartbeat';
+  if (name.includes('salary') || name.includes('paycheck') || name.includes('direct deposit') || name.includes('wage')) return 'money-bill-wave';
+  if (name.includes('utility') || name.includes('electric') || name.includes('water') || name.includes('internet') || name.includes('phone')) return 'bolt';
+  if (name.includes('travel') || name.includes('vacation') || name.includes('flight') || name.includes('hotel')) return 'plane';
+  if (name.includes('education') || name.includes('school') || name.includes('tuition') || name.includes('course')) return 'graduation-cap';
+  if (name.includes('fitness') || name.includes('gym') || name.includes('sport')) return 'dumbbell';
+  if (name.includes('subscription') || name.includes('software') || name.includes('netflix') || name.includes('spotify') || name.includes('adobe')) return 'laptop';
+  if (name.includes('invest') || name.includes('stock') || name.includes('dividend')) return 'chart-line';
+  if (name.includes('crypto') || name.includes('bitcoin') || name.includes('eth')) return 'coins';
+  if (name.includes('insurance')) return 'shield-alt';
+  if (name.includes('gift') || name.includes('donation')) return 'gift';
+  if (type === 'income') return 'money-bill-wave';
+  return 'tag';
+}
+
+function TxIcon({ categoryName, type }) {
+  const isIncome = type === 'income';
+  const iconName = getCategoryIcon(categoryName, type);
+  return (
+    <View style={[styles.iconBox, isIncome && styles.iconBoxIncome]}>
+      <Text style={{ fontSize: 18 }}>{getCategoryEmoji(iconName)}</Text>
+    </View>
+  );
+}
+
+function formatDateHeader(dateStr) {
+  if (!dateStr) return 'Unknown Date';
+  const today = new Date();
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+  const todayStr = today.toISOString().split('T')[0];
+  const yesterdayStr = yesterday.toISOString().split('T')[0];
+  const date = new Date(dateStr + 'T12:00:00');
+  const formatted = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  if (dateStr === todayStr) return `Today, ${formatted}`;
+  if (dateStr === yesterdayStr) return `Yesterday, ${formatted}`;
+  return date.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+}
+
+function groupByDate(transactions) {
+  const groups = {};
+  transactions.forEach((tx) => {
+    const key = tx.date || 'Unknown';
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(tx);
+  });
+  const flat = [];
+  Object.entries(groups)
+    .sort(([a], [b]) => (a < b ? 1 : a > b ? -1 : 0))
+    .forEach(([date, txs]) => {
+      flat.push({ _type: 'header', date });
+      txs.forEach((tx) => flat.push({ _type: 'item', ...tx }));
+    });
+  return flat;
+}
 
 export default function TransactionsScreen({ navigation }) {
   const [transactions, setTransactions] = useState([]);
@@ -49,12 +101,12 @@ export default function TransactionsScreen({ navigation }) {
     else setLoading(true);
     setError(null);
     try {
-      const token = await AsyncStorage.getItem('access_token');
+      const token = await storage.getItem('access_token');
       const res = await fetch(`${BASE}/transactions`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.status === 401) {
-        await AsyncStorage.removeItem('access_token');
+        await storage.removeItem('access_token');
         navigation.getParent()?.replace('Login');
         return;
       }
@@ -73,13 +125,9 @@ export default function TransactionsScreen({ navigation }) {
     }
   }, [navigation]);
 
-  useFocusEffect(
-    useCallback(() => {
-      fetchTransactions();
-    }, [fetchTransactions])
-  );
+  useFocusEffect(useCallback(() => { fetchTransactions(); }, [fetchTransactions]));
 
-  const filteredTransactions = transactions.filter((item) => {
+  const filtered = transactions.filter((item) => {
     const matchesType = typeFilter === 'all' || item.type === typeFilter;
     const query = searchText.toLowerCase();
     const matchesSearch =
@@ -89,28 +137,45 @@ export default function TransactionsScreen({ navigation }) {
     return matchesType && matchesSearch;
   });
 
+  const flatList = groupByDate(filtered);
+
+  const monthlySpend = transactions
+    .filter((t) => t.type === 'expense')
+    .reduce((sum, t) => sum + Math.abs(parseFloat(t.amount) || 0), 0);
+
   function formatCurrency(amount) {
     return `$${Math.abs(parseFloat(amount) || 0).toFixed(2)}`;
   }
 
-  function renderItem({ item }) {
+  function renderRow({ item }) {
+    if (item._type === 'header') {
+      return (
+        <View style={styles.dateHeader}>
+          <Text style={styles.dateHeaderText}>{formatDateHeader(item.date)}</Text>
+        </View>
+      );
+    }
     const isIncome = item.type === 'income';
+    const categoryName = item.category?.name || (isIncome ? 'Income' : 'Expense');
     return (
       <TouchableOpacity
         style={styles.txRow}
         onPress={() => navigation.navigate('TransactionDetail', { transaction: item })}
         activeOpacity={0.75}
       >
-        <CategoryIcon icon={item.category?.icon} color={item.category?.color} />
+        <TxIcon categoryName={categoryName} type={item.type} />
         <View style={styles.txLeft}>
           <Text style={styles.txDescription} numberOfLines={1}>
-            {item.description || item.category?.name || 'Transaction'}
+            {item.description || categoryName}
+          </Text>
+          <Text style={styles.txCategory}>{categoryName}</Text>
+        </View>
+        <View style={styles.txRight}>
+          <Text style={[styles.txAmount, isIncome ? styles.incomeText : styles.expenseText]}>
+            {isIncome ? '+' : '-'}{formatCurrency(item.amount)}
           </Text>
           <Text style={styles.txDate}>{item.date || ''}</Text>
         </View>
-        <Text style={[styles.txAmount, isIncome ? styles.income : styles.expense]}>
-          {isIncome ? '+' : '-'}{formatCurrency(item.amount)}
-        </Text>
       </TouchableOpacity>
     );
   }
@@ -120,7 +185,7 @@ export default function TransactionsScreen({ navigation }) {
   if (loading) {
     return (
       <SafeAreaView style={styles.centered}>
-        <ActivityIndicator size="large" color="#4f6ef7" />
+        <ActivityIndicator size="large" color="#00E5FF" />
       </SafeAreaView>
     );
   }
@@ -142,41 +207,62 @@ export default function TransactionsScreen({ navigation }) {
         <Text style={styles.headerTitle}>Transactions</Text>
       </View>
 
-      {/* Search bar */}
-      <View style={styles.searchContainer}>
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Search transactions..."
-          placeholderTextColor="#6b7280"
-          value={searchText}
-          onChangeText={setSearchText}
-          clearButtonMode="while-editing"
-          autoCorrect={false}
-        />
-      </View>
-
-      {/* Filter pills */}
-      <View style={styles.pillRow}>
-        {TYPE_FILTERS.map((f) => (
-          <TouchableOpacity
-            key={f.value}
-            style={[styles.pill, typeFilter === f.value && styles.pillActive]}
-            onPress={() => setTypeFilter(f.value)}
-            activeOpacity={0.75}
-          >
-            <Text style={[styles.pillText, typeFilter === f.value && styles.pillTextActive]}>
-              {f.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-
       <FlatList
-        data={filteredTransactions}
-        keyExtractor={(item, index) => item.id?.toString() ?? index.toString()}
-        renderItem={renderItem}
+        data={flatList}
+        keyExtractor={(item, index) =>
+          item._type === 'header' ? `hdr-${item.date}` : item.id?.toString() ?? index.toString()
+        }
+        renderItem={renderRow}
         contentContainerStyle={styles.listContent}
-        ItemSeparatorComponent={() => <View style={styles.separator} />}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={() => fetchTransactions(true)} tintColor="#00E5FF" />
+        }
+        ListHeaderComponent={
+          <>
+            {/* Monthly Spend Card */}
+            <View style={styles.spendCard}>
+              <Text style={styles.spendLabel}>Monthly Spend</Text>
+              <Text style={styles.spendAmount}>
+                ${monthlySpend.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+              </Text>
+              <View style={styles.spendBadgeRow}>
+                <View style={styles.spendBadgeDot} />
+                <Text style={styles.spendBadgeText}>SYSTEM OPTIMIZED</Text>
+              </View>
+            </View>
+
+            {/* Search */}
+            <View style={styles.searchContainer}>
+              <Text style={[styles.searchIcon, { fontSize: 14, color: '#4b5563' }]}>🔍</Text>
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Search transactions..."
+                placeholderTextColor="#4b5563"
+                value={searchText}
+                onChangeText={setSearchText}
+                clearButtonMode="while-editing"
+                autoCorrect={false}
+              />
+            </View>
+
+            {/* Filter pills */}
+            <View style={styles.pillRow}>
+              {TYPE_FILTERS.map((f) => (
+                <TouchableOpacity
+                  key={f.value}
+                  style={[styles.pill, typeFilter === f.value && styles.pillActive]}
+                  onPress={() => setTypeFilter(f.value)}
+                  activeOpacity={0.75}
+                >
+                  <Text style={[styles.pillText, typeFilter === f.value && styles.pillTextActive]}>
+                    {f.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </>
+        }
         ListEmptyComponent={
           isFiltering ? (
             <View style={styles.emptyContainer}>
@@ -185,21 +271,11 @@ export default function TransactionsScreen({ navigation }) {
           ) : (
             <View style={styles.emptyContainer}>
               <Text style={styles.emptyText}>No transactions yet</Text>
-              <TouchableOpacity
-                style={styles.emptyButton}
-                onPress={() => navigation.navigate('AddTransaction')}
-              >
+              <TouchableOpacity style={styles.emptyButton} onPress={() => navigation.navigate('AddTransaction')}>
                 <Text style={styles.emptyButtonText}>Add your first transaction</Text>
               </TouchableOpacity>
             </View>
           )
-        }
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={() => fetchTransactions(true)}
-            tintColor="#4f6ef7"
-          />
         }
       />
     </SafeAreaView>
@@ -207,162 +283,106 @@ export default function TransactionsScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#1a1a2e',
-  },
+  container: { flex: 1, backgroundColor: '#121318' },
   centered: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#1a1a2e',
-    paddingHorizontal: 28,
+    flex: 1, justifyContent: 'center', alignItems: 'center',
+    backgroundColor: '#121318', paddingHorizontal: 28,
   },
   header: {
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    backgroundColor: '#16213e',
-    borderBottomWidth: 1,
-    borderBottomColor: '#2a2a4a',
+    paddingHorizontal: 24, paddingVertical: 16,
+    backgroundColor: 'rgba(18,19,24,0.7)',
+    borderBottomWidth: 1, borderBottomColor: 'rgba(59,73,76,0.15)',
   },
-  headerTitle: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: '#f0f4f8',
+  headerTitle: { fontSize: 22, fontWeight: '700', color: '#00E5FF', letterSpacing: -0.5 },
+  // Monthly spend card
+  spendCard: {
+    marginHorizontal: 24, marginTop: 20, marginBottom: 4,
+    padding: 20, backgroundColor: '#1a1b21',
+    borderLeftWidth: 2, borderLeftColor: '#00E5FF', borderRadius: 8,
   },
+  spendLabel: {
+    fontSize: 10, fontWeight: '600', color: '#bac9cc',
+    textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 4,
+  },
+  spendAmount: { fontSize: 30, fontWeight: '700', color: '#e3e1e9', letterSpacing: -0.5 },
+  spendBadgeRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 12 },
+  spendBadgeDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: '#00E5FF' },
+  spendBadgeText: {
+    fontSize: 9, fontWeight: '600', color: '#00E5FF',
+    letterSpacing: 1.5, textTransform: 'uppercase',
+  },
+  // Search
   searchContainer: {
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 8,
+    flexDirection: 'row', alignItems: 'center',
+    marginHorizontal: 24, marginTop: 16, marginBottom: 8,
+    backgroundColor: '#1a1b21', borderRadius: 8,
+    paddingHorizontal: 12, height: 44,
+    borderWidth: 1, borderColor: 'rgba(59,73,76,0.2)',
   },
-  searchInput: {
-    backgroundColor: '#16213e',
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    fontSize: 14,
-    color: '#f0f4f8',
-    borderWidth: 1,
-    borderColor: '#2a2a4a',
-  },
-  pillRow: {
-    flexDirection: 'row',
-    paddingHorizontal: 16,
-    paddingBottom: 10,
-    gap: 8,
-  },
+  searchIcon: { marginRight: 8 },
+  searchInput: { flex: 1, fontSize: 14, color: '#e3e1e9' },
+  // Filter pills
+  pillRow: { flexDirection: 'row', paddingHorizontal: 24, paddingBottom: 8, gap: 8 },
   pill: {
-    paddingHorizontal: 16,
-    paddingVertical: 6,
-    borderRadius: 20,
-    backgroundColor: '#2a2a4a',
+    paddingHorizontal: 18, paddingVertical: 7, borderRadius: 20,
+    borderWidth: 1, borderColor: 'rgba(59,73,76,0.3)', backgroundColor: '#121318',
   },
-  pillActive: {
-    backgroundColor: '#4f6ef7',
+  pillActive: { backgroundColor: '#00E5FF', borderColor: '#00E5FF' },
+  pillText: { fontSize: 12, fontWeight: '600', color: '#bac9cc' },
+  pillTextActive: { color: '#001f24' },
+  // Date header
+  dateHeader: {
+    paddingHorizontal: 24, paddingTop: 20, paddingBottom: 8,
   },
-  pillText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#a0aec0',
+  dateHeaderText: {
+    fontSize: 10, fontWeight: '600', color: '#bac9cc',
+    textTransform: 'uppercase', letterSpacing: 1.5, opacity: 0.7,
   },
-  pillTextActive: {
-    color: '#fff',
-  },
-  listContent: {
-    paddingHorizontal: 16,
-    paddingVertical: 4,
-    paddingBottom: 24,
-  },
+  // List
+  listContent: { paddingBottom: 32 },
+  // Transaction row
   txRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: '#16213e',
-    paddingVertical: 13,
-    paddingHorizontal: 14,
-    borderRadius: 10,
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: '#1a1b21',
+    paddingVertical: 13, paddingHorizontal: 14,
+    marginHorizontal: 24, marginBottom: 8, borderRadius: 8,
+    borderWidth: 1, borderColor: 'rgba(59,73,76,0.15)',
   },
-  iconCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-    flexShrink: 0,
+  iconBox: {
+    width: 40, height: 40, borderRadius: 8,
+    backgroundColor: '#34343a',
+    alignItems: 'center', justifyContent: 'center',
+    marginRight: 12, flexShrink: 0,
+    borderWidth: 1, borderColor: 'rgba(59,73,76,0.15)',
+    overflow: 'hidden',
   },
-  iconDot: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
+  iconBoxIncome: {
+    borderLeftWidth: 3,
+    borderLeftColor: '#00E5FF',
   },
-  txLeft: {
-    flex: 1,
-    marginRight: 12,
+  txLeft: { flex: 1, marginRight: 10 },
+  txDescription: { fontSize: 13, fontWeight: '600', color: '#e3e1e9' },
+  txCategory: {
+    fontSize: 10, color: '#bac9cc', marginTop: 2,
+    textTransform: 'uppercase', letterSpacing: 0.5,
   },
-  txDescription: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#f0f4f8',
-  },
-  txDate: {
-    fontSize: 12,
-    color: '#a0aec0',
-    marginTop: 2,
-  },
-  txAmount: {
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  income: {
-    color: '#48bb78',
-  },
-  expense: {
-    color: '#fc8181',
-  },
-  separator: {
-    height: 8,
-  },
-  emptyContainer: {
-    paddingTop: 80,
-    alignItems: 'center',
-    paddingHorizontal: 24,
-  },
-  emptyText: {
-    fontSize: 15,
-    color: '#a0aec0',
-    marginBottom: 20,
-  },
+  txRight: { alignItems: 'flex-end' },
+  txAmount: { fontSize: 13, fontWeight: '700' },
+  txDate: { fontSize: 9, color: '#849396', marginTop: 2 },
+  incomeText: { color: '#00E5FF' },
+  expenseText: { color: '#bac9cc' },
+  // Empty
+  emptyContainer: { paddingTop: 80, alignItems: 'center', paddingHorizontal: 24 },
+  emptyText: { fontSize: 14, color: '#bac9cc', marginBottom: 20 },
   emptyButton: {
-    height: 44,
-    paddingHorizontal: 24,
-    backgroundColor: '#4f6ef7',
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
+    height: 44, paddingHorizontal: 24, backgroundColor: '#00E5FF',
+    borderRadius: 8, alignItems: 'center', justifyContent: 'center',
   },
-  emptyButtonText: {
-    color: '#fff',
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  errorText: {
-    fontSize: 15,
-    color: '#fc8181',
-    textAlign: 'center',
-    marginBottom: 20,
-  },
+  emptyButtonText: { color: '#001f24', fontSize: 14, fontWeight: '700' },
+  errorText: { fontSize: 15, color: '#ffb4ab', textAlign: 'center', marginBottom: 20 },
   retryButton: {
-    height: 44,
-    paddingHorizontal: 32,
-    backgroundColor: '#4f6ef7',
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
+    height: 44, paddingHorizontal: 32, backgroundColor: '#00E5FF',
+    borderRadius: 8, alignItems: 'center', justifyContent: 'center',
   },
-  retryButtonText: {
-    color: '#fff',
-    fontSize: 15,
-    fontWeight: '600',
-  },
+  retryButtonText: { color: '#001f24', fontSize: 15, fontWeight: '700' },
 });

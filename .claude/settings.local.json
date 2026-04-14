@@ -5,7 +5,15 @@
       "Bash(C:/Users/alexl/.claude/plugins/cache/claude-plugins-official/superpowers/5.0.6/scripts/start-server.sh --project-dir \"C:/Users/alexl/OneDrive/Desktop/Ai/Projects/Finance Tracker App/mobile\")",
       "Bash(bash \"C:/Users/alexl/.claude/plugins/cache/claude-plugins-official/superpowers/5.0.6/skills/brainstorming/scripts/start-server.sh\" --project-dir \"C:/Users/alexl/OneDrive/Desktop/Ai/Projects/Finance Tracker App/mobile\")",
       "Bash(xargs cat:*)",
-      "Bash(npx expo:*)"
+      "Bash(npx expo:*)",
+      "mcp__stitch__list_screens",
+      "mcp__stitch__get_screen",
+      "WebFetch(domain:lh3.googleusercontent.com)",
+      "Bash(mkdir -p \"C:/Users/alexl/OneDrive/Desktop/Ai/Projects/Finance Tracker App/mobile/stitch-designs\")",
+      "Bash(__NEW_LINE_084c07683a3cd435__ curl:*)",
+      "Bash(curl -L -o \"01-budget.html\" \"https://contribution.usercontent.google.com/download?c=CgthaWRhX2NvZGVmeBJ7Eh1hcHBfY29tcGFuaW9uX2dlbmVyYXRlZF9maWxlcxpaCiVodG1sXzRkMDU5ZGQ3NmVlZTRmZGQ4OTIxMDI0Yjc3OTkzMWMwEgsSBxD52aCczA4YAZIBIwoKcHJvamVjdF9pZBIVQhM4ODkwNTAxMDI1NDM2ODUyODI1&filename=&opi=89354086\")",
+      "Bash(curl -L -o \"02-goals.html\" \"https://contribution.usercontent.google.com/download?c=CgthaWRhX2NvZGVmeBJ7Eh1hcHBfY29tcGFuaW9uX2dlbmVyYXRlZF9maWxlcxpaCiVodG1sXzlmNDI0M2FjYTQ1MDQ0MmU4NjViMTVhYWRjNjgyM2NkEgsSBxD52aCczA4YAZIBIwoKcHJvamVjdF9pZBIVQhM4ODkwNTAxMDI1NDM2ODUyODI1&filename=&opi=89354086\")",
+      "Bash(curl -L -o \"03-advisor.html\" \"https://contribution.usercontent.google.com/download?c=CgthaWRhX2NvZGVmeBJ7Eh1hcHBfY29tcGFuaW9uX2dlbmVyYXRlZF9maWxlcxpaCiVodG1sXzcxZjliNDk4MTIwYzQ4MzM5NzI5ZmUwZTk5ZjFkMDRkEgsSBxD52aCczA4YAZIBIwoKcHJvamVjdF9pZBIVQhM4ODkwNTAxMDI1NDM2ODUyODI1&filename=&opi=89354086\")"
     ]
   }
 }
