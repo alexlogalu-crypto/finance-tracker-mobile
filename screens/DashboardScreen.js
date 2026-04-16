@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import Svg, { Path, Defs, LinearGradient, Stop } from 'react-native-svg';
 import { storage } from '../utils/storage';
+import { apiRequest } from '../utils/api';
 import { getStreak } from '../utils/streak';
 import { getCategoryEmoji } from '../utils/categoryIcon';
 import { useBudgetAlert } from '../context/BudgetAlertContext';
@@ -124,15 +125,7 @@ export default function DashboardScreen({ navigation }) {
     else setLoading(true);
     setError(null);
     try {
-      const token = await storage.getItem('access_token');
-      const res = await fetch('https://finance-tracker-production-e13e.up.railway.app/api/v1/summary', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.status === 401) {
-        await storage.removeItem('access_token');
-        navigation.getParent()?.replace('Login');
-        return;
-      }
+      const res = await apiRequest('/summary');
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         throw new Error(data?.detail || `Request failed (${res.status})`);
@@ -149,11 +142,7 @@ export default function DashboardScreen({ navigation }) {
 
   const fetchTrend = useCallback(async () => {
     try {
-      const token = await storage.getItem('access_token');
-      const res = await fetch(
-        'https://finance-tracker-production-e13e.up.railway.app/api/v1/summary/monthly-trend?months=6',
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      const res = await apiRequest('/summary/monthly-trend?months=6');
       if (res.ok) {
         const data = await res.json();
         setTrendData(data.trend ?? []);

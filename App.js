@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { View, Text, ActivityIndicator } from 'react-native';
 import { storage } from './utils/storage';
+import { setAuthFailureHandler } from './utils/api';
 import { BudgetAlertProvider, useBudgetAlert } from './context/BudgetAlertContext';
 import LoginScreen from './screens/LoginScreen';
 import DashboardScreen from './screens/DashboardScreen';
@@ -68,6 +69,14 @@ function MainTabs() {
 
 export default function App() {
   const [initialRoute, setInitialRoute] = useState(null);
+  const navigationRef = useRef(null);
+
+  // Wire up the API utility so a failed token refresh redirects here.
+  useEffect(() => {
+    setAuthFailureHandler(() => {
+      navigationRef.current?.reset({ index: 0, routes: [{ name: 'Login' }] });
+    });
+  }, []);
 
   useEffect(() => {
     (async () => {
@@ -93,7 +102,7 @@ export default function App() {
 
   return (
     <BudgetAlertProvider>
-      <NavigationContainer>
+      <NavigationContainer ref={navigationRef}>
         <Stack.Navigator initialRouteName={initialRoute} screenOptions={{ headerShown: false }}>
           <Stack.Screen name="Onboarding" component={OnboardingScreen} />
           <Stack.Screen name="Login" component={LoginScreen} />

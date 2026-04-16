@@ -52,6 +52,7 @@ export default function LoginScreen({ navigation }) {
       }
       console.log('token stored:', data.access_token ? 'yes' : 'MISSING');
       await storage.setItem('access_token', data.access_token);
+      await storage.setItem('refresh_token', data.refresh_token);
       console.log('navigating to Main');
       navigation.replace('Main');
     } catch (err) {
