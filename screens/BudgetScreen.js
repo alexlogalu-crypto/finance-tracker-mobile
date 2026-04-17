@@ -15,6 +15,7 @@ import {
   Platform,
 } from 'react-native';
 import { storage } from '../utils/storage';
+import { apiRequest } from '../utils/api';
 import Svg, { Circle } from 'react-native-svg';
 import { useBudgetAlert } from '../context/BudgetAlertContext';
 
@@ -61,18 +62,11 @@ export default function BudgetScreen({ navigation }) {
     setLoading(true);
     setError(null);
     try {
-      const headers = { Authorization: `Bearer ${tok}`, 'Content-Type': 'application/json' };
       const [budgetsRes, categoriesRes, summaryRes] = await Promise.all([
-        fetch(`${BASE}/budgets`, { headers }),
-        fetch(`${BASE}/categories`, { headers }),
-        fetch(`${BASE}/summary`, { headers }),
+        apiRequest('/budgets'),
+        apiRequest('/categories'),
+        apiRequest('/summary'),
       ]);
-
-      if (budgetsRes.status === 401 || categoriesRes.status === 401) {
-        await storage.removeItem('access_token');
-        navigation.getParent()?.replace('Login');
-        return;
-      }
 
       if (!budgetsRes.ok) {
         const d = await budgetsRes.json().catch(() => ({}));
@@ -138,12 +132,10 @@ export default function BudgetScreen({ navigation }) {
       const now = new Date();
       const body = { category_id: selectedCategory.id, amount: parsed, month: now.getMonth() + 1, year: now.getFullYear() };
       if (editingBudget?.id) body.id = editingBudget.id;
-      const res = await fetch(`${BASE}/budgets`, {
+      const res = await apiRequest('/budgets', {
         method: 'PUT',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       });
-      if (res.status === 401) { await storage.removeItem('access_token'); navigation.getParent()?.replace('Login'); return; }
       if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d?.detail || `Save failed (${res.status})`); }
       closeModal();
       await fetchData(token);

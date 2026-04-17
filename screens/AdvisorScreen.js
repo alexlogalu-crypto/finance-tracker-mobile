@@ -13,6 +13,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { storage } from '../utils/storage';
+import { apiRequest } from '../utils/api';
 
 const BASE = 'https://finance-tracker-production-e13e.up.railway.app/api/v1';
 
@@ -58,25 +59,10 @@ export default function AdvisorScreen({ navigation }) {
     setLoading(true);
 
     try {
-      const tok = await storage.getItem('access_token');
-      if (!tok) {
-        navigation.getParent()?.replace('Login');
-        return;
-      }
-      const res = await fetch(`${BASE}/advisor`, {
+      const res = await apiRequest('/advisor', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${tok}`,
-        },
         body: JSON.stringify({ message: text }),
       });
-
-      if (res.status === 401) {
-        await storage.removeItem('access_token');
-        navigation.getParent()?.replace('Login');
-        return;
-      }
 
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail ?? 'Something went wrong.');

@@ -16,6 +16,7 @@ import {
   Platform,
 } from 'react-native';
 import { storage } from '../utils/storage';
+import { apiRequest } from '../utils/api';
 
 const API = 'https://finance-tracker-production-e13e.up.railway.app/api/v1/goals';
 
@@ -44,13 +45,7 @@ export default function GoalsScreen({ navigation }) {
     else setLoading(true);
     setError(null);
     try {
-      const token = await getToken();
-      const res = await fetch(API, { headers: { Authorization: `Bearer ${token}` } });
-      if (res.status === 401) {
-        await storage.removeItem('access_token');
-        navigation.getParent()?.replace('Login');
-        return;
-      }
+      const res = await apiRequest('/goals');
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         throw new Error(data?.detail || `Request failed (${res.status})`);
@@ -78,15 +73,12 @@ export default function GoalsScreen({ navigation }) {
     }
     setAddSaving(true);
     try {
-      const token = await getToken();
       const body = { name, target_amount: target };
       if (deadline) body.deadline = deadline;
-      const res = await fetch(API, {
+      const res = await apiRequest('/goals', {
         method: 'POST',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       });
-      if (res.status === 401) { await storage.removeItem('access_token'); navigation.getParent()?.replace('Login'); return; }
       if (!res.ok) { const data = await res.json().catch(() => ({})); throw new Error(data?.detail || `Request failed (${res.status})`); }
       const newGoal = await res.json();
       setGoals(prev => [newGoal, ...prev]);
@@ -104,17 +96,14 @@ export default function GoalsScreen({ navigation }) {
     if (isNaN(amount) || amount <= 0) return Alert.alert('Error', 'Please enter a valid amount.');
     setMoneySaving(true);
     try {
-      const token = await getToken();
       const goal = moneyGoal;
       const newCurrent = parseFloat(goal.current_amount) + amount;
       const body = { name: goal.name, target_amount: parseFloat(goal.target_amount), current_amount: newCurrent };
       if (goal.deadline) body.deadline = goal.deadline;
-      const res = await fetch(`${API}/${goal.id}`, {
+      const res = await apiRequest(`/goals/${goal.id}`, {
         method: 'PUT',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       });
-      if (res.status === 401) { await storage.removeItem('access_token'); navigation.getParent()?.replace('Login'); return; }
       if (!res.ok) { const data = await res.json().catch(() => ({})); throw new Error(data?.detail || `Request failed (${res.status})`); }
       const updated = await res.json();
       setGoals(prev => prev.map(g => (g.id === updated.id ? updated : g)));
@@ -128,9 +117,7 @@ export default function GoalsScreen({ navigation }) {
 
   async function doDeleteGoal(goal) {
     try {
-      const token = await getToken();
-      const res = await fetch(`${API}/${goal.id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
-      if (res.status === 401) { await storage.removeItem('access_token'); navigation.getParent()?.replace('Login'); return; }
+      const res = await apiRequest(`/goals/${goal.id}`, { method: 'DELETE' });
       if (!res.ok && res.status !== 204) { const data = await res.json().catch(() => ({})); throw new Error(data?.detail || `Request failed (${res.status})`); }
       setGoals(prev => prev.filter(g => g.id !== goal.id));
     } catch (err) {

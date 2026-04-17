@@ -15,6 +15,7 @@ import {
   KeyboardAvoidingView,
 } from 'react-native';
 import { storage } from '../utils/storage';
+import { apiRequest } from '../utils/api';
 import { recordTransaction } from '../utils/streak';
 import { getCategoryEmoji } from '../utils/categoryIcon';
 
@@ -64,10 +65,7 @@ export default function AddTransactionScreen({ navigation, route }) {
   useEffect(() => {
     (async () => {
       try {
-        const token = await storage.getItem('access_token');
-        const res = await fetch('https://finance-tracker-production-e13e.up.railway.app/api/v1/categories', {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        const res = await apiRequest('/categories');
         if (!res.ok) throw new Error(`Failed to load categories (${res.status})`);
         const data = await res.json();
         const raw = [...(data.system ?? []), ...(data.custom ?? [])];
@@ -103,7 +101,6 @@ export default function AddTransactionScreen({ navigation, route }) {
     setErrors({});
     setSubmitting(true);
     try {
-      const token = await storage.getItem('access_token');
       const body = {
         amount: parseFloat(amount),
         category_id: category.id,
@@ -111,16 +108,10 @@ export default function AddTransactionScreen({ navigation, route }) {
         description: description.trim(),
         date: date.trim(),
       };
-      const res = await fetch('https://finance-tracker-production-e13e.up.railway.app/api/v1/transactions', {
+      const res = await apiRequest('/transactions', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify(body),
       });
-      if (res.status === 401) {
-        await storage.removeItem('access_token');
-        navigation.replace('Login');
-        return;
-      }
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         throw new Error(data?.detail || `Submission failed (${res.status})`);

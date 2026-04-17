@@ -12,6 +12,7 @@ import {
   TextInput,
 } from 'react-native';
 import { storage } from '../utils/storage';
+import { apiRequest } from '../utils/api';
 import { getCategoryEmoji } from '../utils/categoryIcon';
 
 const BASE = 'https://finance-tracker-production-e13e.up.railway.app/api/v1';
@@ -101,15 +102,7 @@ export default function TransactionsScreen({ navigation }) {
     else setLoading(true);
     setError(null);
     try {
-      const token = await storage.getItem('access_token');
-      const res = await fetch(`${BASE}/transactions`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.status === 401) {
-        await storage.removeItem('access_token');
-        navigation.getParent()?.replace('Login');
-        return;
-      }
+      const res = await apiRequest('/transactions');
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         throw new Error(data?.detail || `Request failed (${res.status})`);
