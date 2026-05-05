@@ -9,12 +9,16 @@ import {
   Platform,
   ActivityIndicator,
   Alert,
+  ScrollView,
 } from 'react-native';
 import { storage } from '../utils/storage';
+import { apiRequest } from '../utils/api';
 
-export default function LoginScreen({ navigation }) {
+export default function RegisterScreen({ navigation }) {
   const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [fullName, setFullName] = useState('');
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
 
@@ -22,15 +26,16 @@ export default function LoginScreen({ navigation }) {
     const next = {};
     if (!email.trim()) next.email = 'Email is required';
     else if (!/\S+@\S+\.\S+/.test(email)) next.email = 'Enter a valid email';
+    if (!username.trim()) next.username = 'Username is required';
+    else if (!/^[a-zA-Z0-9_]{3,50}$/.test(username.trim()))
+      next.username = '3–50 chars, letters/numbers/underscores only';
     if (!password) next.password = 'Password is required';
-    else if (password.length < 6) next.password = 'At least 6 characters';
+    else if (password.length < 8) next.password = 'At least 8 characters';
     return next;
   }
 
-  async function handleLogin() {
-    console.log('login pressed');
+  async function handleRegister() {
     const errs = validate();
-    console.log('validation errors:', JSON.stringify(errs));
     if (Object.keys(errs).length) {
       setErrors(errs);
       return;
@@ -38,25 +43,23 @@ export default function LoginScreen({ navigation }) {
     setErrors({});
     setLoading(true);
     try {
-      const res = await fetch('https://finance-tracker-production-e13e.up.railway.app/api/v1/auth/login', {
+      const body = { email: email.trim(), username: username.trim(), password };
+      if (fullName.trim()) body.full_name = fullName.trim();
+
+      const res = await apiRequest('/auth/register', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify(body),
       });
-      console.log('fetch status:', res.status);
       const data = await res.json();
       if (!res.ok) {
-        const message = data?.detail || 'Login failed. Please try again.';
-        Alert.alert('Login Failed', message);
+        const message = data?.detail || 'Registration failed. Please try again.';
+        Alert.alert('Registration Failed', message);
         return;
       }
-      console.log('token stored:', data.access_token ? 'yes' : 'MISSING');
       await storage.setItem('access_token', data.access_token);
       await storage.setItem('refresh_token', data.refresh_token);
-      console.log('navigating to Main');
-      navigation.replace('Main');
+      navigation.replace('Onboarding');
     } catch (err) {
-      console.log('login error:', err.message);
       Alert.alert('Error', err.message || 'An unexpected error occurred.');
     } finally {
       setLoading(false);
@@ -68,11 +71,15 @@ export default function LoginScreen({ navigation }) {
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <View style={styles.inner}>
+      <ScrollView
+        contentContainerStyle={styles.inner}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
         {/* Brand */}
         <View style={styles.brand}>
           <Text style={styles.brandTitle}>Wealth Ledger</Text>
-          <Text style={styles.brandSub}>Sign in to your account</Text>
+          <Text style={styles.brandSub}>Create your account</Text>
         </View>
 
         {/* Form */}
@@ -93,10 +100,38 @@ export default function LoginScreen({ navigation }) {
           </View>
 
           <View style={styles.field}>
+            <Text style={styles.label}>Username</Text>
+            <TextInput
+              style={[styles.input, errors.username && styles.inputError]}
+              placeholder="your_username"
+              placeholderTextColor="#4b5563"
+              value={username}
+              onChangeText={setUsername}
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+            {errors.username ? <Text style={styles.fieldError}>{errors.username}</Text> : null}
+          </View>
+
+          <View style={styles.field}>
+            <Text style={styles.label}>
+              Full Name <Text style={styles.optional}>optional</Text>
+            </Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Jane Doe"
+              placeholderTextColor="#4b5563"
+              value={fullName}
+              onChangeText={setFullName}
+              autoCorrect={false}
+            />
+          </View>
+
+          <View style={styles.field}>
             <Text style={styles.label}>Password</Text>
             <TextInput
               style={[styles.input, errors.password && styles.inputError]}
-              placeholder="••••••••"
+              placeholder="Min. 8 characters"
               placeholderTextColor="#4b5563"
               value={password}
               onChangeText={setPassword}
@@ -107,26 +142,26 @@ export default function LoginScreen({ navigation }) {
 
           <TouchableOpacity
             style={[styles.button, loading && styles.buttonDisabled]}
-            onPress={handleLogin}
+            onPress={handleRegister}
             disabled={loading}
             activeOpacity={0.85}
           >
             {loading ? (
               <ActivityIndicator color="#001f24" />
             ) : (
-              <Text style={styles.buttonText}>Sign In</Text>
+              <Text style={styles.buttonText}>Create Account</Text>
             )}
           </TouchableOpacity>
         </View>
 
         {/* Footer */}
         <View style={styles.footer}>
-          <Text style={styles.footerText}>Don't have an account? </Text>
-          <TouchableOpacity onPress={() => navigation.navigate('Register')}>
-            <Text style={styles.footerLink}>Create account</Text>
+          <Text style={styles.footerText}>Already have an account? </Text>
+          <TouchableOpacity onPress={() => navigation.goBack()}>
+            <Text style={styles.footerLink}>Sign in</Text>
           </TouchableOpacity>
         </View>
-      </View>
+      </ScrollView>
 
       {/* Ambient glow */}
       <View style={styles.glowTop} pointerEvents="none" />
@@ -141,10 +176,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#121318',
   },
   inner: {
-    flex: 1,
+    flexGrow: 1,
     justifyContent: 'center',
     paddingHorizontal: 28,
-    paddingBottom: 40,
+    paddingVertical: 40,
   },
   brand: {
     marginBottom: 44,
@@ -174,6 +209,12 @@ const styles = StyleSheet.create({
     color: '#bac9cc',
     textTransform: 'uppercase',
     letterSpacing: 1.2,
+  },
+  optional: {
+    fontWeight: '400',
+    color: '#4b5563',
+    textTransform: 'none',
+    letterSpacing: 0,
   },
   input: {
     height: 50,

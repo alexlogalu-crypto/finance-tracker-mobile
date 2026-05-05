@@ -10,6 +10,7 @@ import {
   Platform,
 } from 'react-native';
 import { storage } from '../utils/storage';
+import { apiRequest } from '../utils/api';
 
 const INCOME_OPTIONS = [
   { key: 'weekly',    label: 'Weekly Job',        description: 'Part time job, paid weekly',       icon: '💼' },
@@ -41,17 +42,13 @@ export default function OnboardingScreen({ navigation }) {
     }
     if (createGoal && goalName.trim() && goalAmount.trim()) {
       try {
-        const token = await storage.getItem('access_token');
-        if (token) {
-          await fetch('https://finance-tracker-production-e13e.up.railway.app/api/v1/goals', {
-            method: 'POST',
-            headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name: goalName.trim(), target_amount: parseFloat(goalAmount) }),
-          });
-        }
+        await apiRequest('/goals', {
+          method: 'POST',
+          body: JSON.stringify({ name: goalName.trim(), target_amount: parseFloat(goalAmount) }),
+        });
       } catch (_) {}
     }
-    navigation.replace('Login');
+    navigation.replace('Main');
   }
 
   // ── Step 1: Welcome ───────────────────────────────────────────────────────

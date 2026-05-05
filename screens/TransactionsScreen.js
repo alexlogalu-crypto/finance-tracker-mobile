@@ -10,10 +10,14 @@ import {
   SafeAreaView,
   RefreshControl,
   TextInput,
+  Alert,
+  Platform,
 } from 'react-native';
 import { storage } from '../utils/storage';
 import { apiRequest } from '../utils/api';
+import { saveCache, readCache, isOnline } from '../utils/cache';
 import { getCategoryEmoji } from '../utils/categoryIcon';
+import OfflineBanner from '../components/OfflineBanner';
 
 const BASE = 'https://finance-tracker-production-e13e.up.railway.app/api/v1';
 
@@ -102,14 +106,21 @@ export default function TransactionsScreen({ navigation }) {
     else setLoading(true);
     setError(null);
     try {
-      const res = await apiRequest('/transactions');
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data?.detail || `Request failed (${res.status})`);
+      const online = await isOnline();
+      if (online) {
+        const res = await apiRequest('/transactions');
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          throw new Error(data?.detail || `Request failed (${res.status})`);
+        }
+        const data = await res.json();
+        const list = Array.isArray(data) ? data : (data.items ?? data.transactions ?? []);
+        await saveCache('transactions', list);
+        setTransactions(list);
+      } else {
+        const cached = await readCache('transactions');
+        if (cached) setTransactions(cached);
       }
-      const data = await res.json();
-      const list = Array.isArray(data) ? data : (data.items ?? data.transactions ?? []);
-      setTransactions(list);
     } catch (err) {
       setError(err.message || 'Failed to load transactions.');
     } finally {
@@ -173,6 +184,19 @@ export default function TransactionsScreen({ navigation }) {
     );
   }
 
+  async function handleAddTransaction() {
+    const online = await isOnline();
+    if (!online) {
+      if (Platform.OS === 'web') {
+        window.alert('You\'re offline · Adding transactions requires an internet connection.');
+      } else {
+        Alert.alert('You\'re offline', 'Adding transactions requires an internet connection.');
+      }
+      return;
+    }
+    navigation.navigate('AddTransaction');
+  }
+
   const isFiltering = searchText.length > 0 || typeFilter !== 'all';
 
   if (loading) {
@@ -196,6 +220,7 @@ export default function TransactionsScreen({ navigation }) {
 
   return (
     <SafeAreaView style={styles.container}>
+      <OfflineBanner cacheKey="transactions" />
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Transactions</Text>
       </View>
@@ -221,7 +246,7 @@ export default function TransactionsScreen({ navigation }) {
               </Text>
               <View style={styles.spendBadgeRow}>
                 <View style={styles.spendBadgeDot} />
-                <Text style={styles.spendBadgeText}>SYSTEM OPTIMIZED</Text>
+                <Text style={styles.spendBadgeText}>YOUR TRANSACTION HISTORY</Text>
               </View>
             </View>
 
@@ -264,7 +289,7 @@ export default function TransactionsScreen({ navigation }) {
           ) : (
             <View style={styles.emptyContainer}>
               <Text style={styles.emptyText}>No transactions yet</Text>
-              <TouchableOpacity style={styles.emptyButton} onPress={() => navigation.navigate('AddTransaction')}>
+              <TouchableOpacity style={styles.emptyButton} onPress={handleAddTransaction}>
                 <Text style={styles.emptyButtonText}>Add your first transaction</Text>
               </TouchableOpacity>
             </View>

@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { View, Text, ActivityIndicator } from 'react-native';
 import { storage } from './utils/storage';
-import { setAuthFailureHandler } from './utils/api';
+import { navigationRef } from './utils/navigationRef';
 import { BudgetAlertProvider, useBudgetAlert } from './context/BudgetAlertContext';
 import LoginScreen from './screens/LoginScreen';
 import DashboardScreen from './screens/DashboardScreen';
@@ -15,6 +15,8 @@ import TransactionDetailScreen from './screens/TransactionDetailScreen';
 import GoalsScreen from './screens/GoalsScreen';
 import AdvisorScreen from './screens/AdvisorScreen';
 import OnboardingScreen from './screens/OnboardingScreen';
+import RegisterScreen from './screens/RegisterScreen';
+import RecurringScreen from './screens/RecurringScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -25,6 +27,7 @@ const TAB_ICONS = {
   Advisor: '💬',
   Budget: '📊',
   Goals: '🎯',
+  Recurring: '🔁',
 };
 
 function MainTabs() {
@@ -63,31 +66,17 @@ function MainTabs() {
         options={{ tabBarBadge: alertCount > 0 ? alertCount : undefined }}
       />
       <Tab.Screen name="Goals" component={GoalsScreen} />
+      <Tab.Screen name="Recurring" component={RecurringScreen} />
     </Tab.Navigator>
   );
 }
 
 export default function App() {
   const [initialRoute, setInitialRoute] = useState(null);
-  const navigationRef = useRef(null);
-
-  // Wire up the API utility so a failed token refresh redirects here.
-  useEffect(() => {
-    setAuthFailureHandler(() => {
-      navigationRef.current?.reset({ index: 0, routes: [{ name: 'Login' }] });
-    });
-  }, []);
 
   useEffect(() => {
     (async () => {
-      const onboarded = await storage.getItem('onboarding_complete');
-      console.log('onboarded:', onboarded);
-      if (onboarded !== 'true') {
-        setInitialRoute('Onboarding');
-        return;
-      }
       const token = await storage.getItem('access_token');
-      console.log('token on startup:', token ? 'present' : 'MISSING');
       setInitialRoute(token ? 'Main' : 'Login');
     })();
   }, []);
@@ -106,6 +95,7 @@ export default function App() {
         <Stack.Navigator initialRouteName={initialRoute} screenOptions={{ headerShown: false }}>
           <Stack.Screen name="Onboarding" component={OnboardingScreen} />
           <Stack.Screen name="Login" component={LoginScreen} />
+          <Stack.Screen name="Register" component={RegisterScreen} />
           <Stack.Screen name="Main" component={MainTabs} />
           <Stack.Screen
             name="AddTransaction"

@@ -1,4 +1,5 @@
 import { storage } from './storage';
+import { navigationRef } from './navigationRef';
 
 const BASE_URL = 'https://finance-tracker-production-e13e.up.railway.app/api/v1';
 
@@ -41,7 +42,11 @@ async function attemptTokenRefresh() {
 async function clearSession() {
   await storage.removeItem('access_token');
   await storage.removeItem('refresh_token');
-  if (_onAuthFailure) _onAuthFailure();
+  navigationRef.current?.reset({ index: 0, routes: [{ name: 'Login' }] });
+}
+
+export async function logout() {
+  await clearSession();
 }
 
 /**

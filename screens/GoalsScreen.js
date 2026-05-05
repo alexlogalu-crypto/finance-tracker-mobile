@@ -15,14 +15,9 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import { storage } from '../utils/storage';
 import { apiRequest } from '../utils/api';
-
-const API = 'https://finance-tracker-production-e13e.up.railway.app/api/v1/goals';
-
-async function getToken() {
-  return storage.getItem('access_token');
-}
+import { saveCache, readCache, isOnline } from '../utils/cache';
+import OfflineBanner from '../components/OfflineBanner';
 
 export default function GoalsScreen({ navigation }) {
   const [goals, setGoals] = useState([]);
@@ -45,13 +40,20 @@ export default function GoalsScreen({ navigation }) {
     else setLoading(true);
     setError(null);
     try {
-      const res = await apiRequest('/goals');
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data?.detail || `Request failed (${res.status})`);
+      const online = await isOnline();
+      if (online) {
+        const res = await apiRequest('/goals');
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          throw new Error(data?.detail || `Request failed (${res.status})`);
+        }
+        const data = await res.json();
+        await saveCache('goals', data);
+        setGoals(data);
+      } else {
+        const cached = await readCache('goals');
+        if (cached) setGoals(cached);
       }
-      const data = await res.json();
-      setGoals(data);
     } catch (err) {
       setError(err.message || 'Failed to load goals.');
     } finally {
@@ -63,6 +65,15 @@ export default function GoalsScreen({ navigation }) {
   useFocusEffect(useCallback(() => { fetchGoals(); }, [fetchGoals]));
 
   async function handleAddGoal() {
+    const online = await isOnline();
+    if (!online) {
+      if (Platform.OS === 'web') {
+        window.alert('You\'re offline · Creating goals requires an internet connection.');
+      } else {
+        Alert.alert('You\'re offline', 'Creating goals requires an internet connection.');
+      }
+      return;
+    }
     const name = addName.trim();
     const target = parseFloat(addTarget);
     if (!name) return Alert.alert('Error', 'Please enter a goal name.');
@@ -92,6 +103,15 @@ export default function GoalsScreen({ navigation }) {
   }
 
   async function handleAddMoney() {
+    const online = await isOnline();
+    if (!online) {
+      if (Platform.OS === 'web') {
+        window.alert('You\'re offline · Adding money requires an internet connection.');
+      } else {
+        Alert.alert('You\'re offline', 'Adding money requires an internet connection.');
+      }
+      return;
+    }
     const amount = parseFloat(moneyAmount);
     if (isNaN(amount) || amount <= 0) return Alert.alert('Error', 'Please enter a valid amount.');
     setMoneySaving(true);
@@ -116,6 +136,15 @@ export default function GoalsScreen({ navigation }) {
   }
 
   async function doDeleteGoal(goal) {
+    const online = await isOnline();
+    if (!online) {
+      if (Platform.OS === 'web') {
+        window.alert('You\'re offline · Deleting goals requires an internet connection.');
+      } else {
+        Alert.alert('You\'re offline', 'Deleting goals requires an internet connection.');
+      }
+      return;
+    }
     try {
       const res = await apiRequest(`/goals/${goal.id}`, { method: 'DELETE' });
       if (!res.ok && res.status !== 204) { const data = await res.json().catch(() => ({})); throw new Error(data?.detail || `Request failed (${res.status})`); }
@@ -218,6 +247,7 @@ export default function GoalsScreen({ navigation }) {
 
   return (
     <SafeAreaView style={styles.container}>
+      <OfflineBanner cacheKey="goals" />
       <View style={styles.header}>
         <View>
           <Text style={styles.headerOverview}>Overview</Text>

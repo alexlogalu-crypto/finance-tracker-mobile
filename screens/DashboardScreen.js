@@ -10,13 +10,16 @@ import {
   SafeAreaView,
   Alert,
   RefreshControl,
+  Platform,
 } from 'react-native';
 import Svg, { Path, Defs, LinearGradient, Stop } from 'react-native-svg';
 import { storage } from '../utils/storage';
 import { apiRequest } from '../utils/api';
+import { saveCache, readCache, isOnline } from '../utils/cache';
 import { getStreak } from '../utils/streak';
 import { getCategoryEmoji } from '../utils/categoryIcon';
 import { useBudgetAlert } from '../context/BudgetAlertContext';
+import OfflineBanner from '../components/OfflineBanner';
 
 const QUICK_ACTIONS = [
   { label: 'Expense', icon: '↑', type: 'expense' },
@@ -125,13 +128,20 @@ export default function DashboardScreen({ navigation }) {
     else setLoading(true);
     setError(null);
     try {
-      const res = await apiRequest('/summary');
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data?.detail || `Request failed (${res.status})`);
+      const online = await isOnline();
+      if (online) {
+        const res = await apiRequest('/summary');
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          throw new Error(data?.detail || `Request failed (${res.status})`);
+        }
+        const data = await res.json();
+        await saveCache('summary', data);
+        setSummary(data);
+      } else {
+        const cached = await readCache('summary');
+        if (cached) setSummary(cached);
       }
-      const data = await res.json();
-      setSummary(data);
     } catch (err) {
       setError(err.message || 'Failed to load summary.');
     } finally {
@@ -142,10 +152,17 @@ export default function DashboardScreen({ navigation }) {
 
   const fetchTrend = useCallback(async () => {
     try {
-      const res = await apiRequest('/summary/monthly-trend?months=6');
-      if (res.ok) {
-        const data = await res.json();
-        setTrendData(data.trend ?? []);
+      const online = await isOnline();
+      if (online) {
+        const res = await apiRequest('/summary/monthly-trend?months=6');
+        if (res.ok) {
+          const data = await res.json();
+          await saveCache('summary_trend', data);
+          setTrendData(data.trend ?? []);
+        }
+      } else {
+        const cached = await readCache('summary_trend');
+        if (cached) setTrendData(cached.trend ?? []);
       }
     } catch (_) {}
   }, []);
@@ -169,10 +186,15 @@ export default function DashboardScreen({ navigation }) {
 
   async function handleLogout() {
     await storage.removeItem('access_token');
-    navigation.getParent()?.replace('Login');
+    await storage.removeItem('refresh_token');
+    navigation.getParent()?.reset({ index: 0, routes: [{ name: 'Login' }] });
   }
 
   function confirmLogout() {
+    if (Platform.OS === 'web') {
+      if (window.confirm('Are you sure you want to log out?')) handleLogout();
+      return;
+    }
     Alert.alert('Log Out', 'Are you sure you want to log out?', [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Log Out', style: 'destructive', onPress: handleLogout },
@@ -183,12 +205,21 @@ export default function DashboardScreen({ navigation }) {
     return `$${Math.abs(amount ?? 0).toFixed(2)}`;
   }
 
-  function handleQuickAction(action) {
+  async function handleQuickAction(action) {
     if (action.type === null) {
       navigation.navigate('Transactions');
-    } else {
-      navigation.navigate('AddTransaction', { defaultType: action.type });
+      return;
     }
+    const online = await isOnline();
+    if (!online) {
+      if (Platform.OS === 'web') {
+        window.alert('You\'re offline · Adding transactions requires an internet connection.');
+      } else {
+        Alert.alert('You\'re offline', 'Adding transactions requires an internet connection.');
+      }
+      return;
+    }
+    navigation.navigate('AddTransaction', { defaultType: action.type });
   }
 
   function renderTransaction({ item, index }) {
@@ -244,6 +275,7 @@ export default function DashboardScreen({ navigation }) {
 
   return (
     <SafeAreaView style={styles.container}>
+      <OfflineBanner cacheKey="summary" />
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Wealth Ledger</Text>
@@ -275,7 +307,7 @@ export default function DashboardScreen({ navigation }) {
           <>
             {/* Hero balance */}
             <View style={styles.heroSection}>
-              <Text style={styles.heroLabel}>Portfolio Value</Text>
+              <Text style={styles.heroLabel}>Total Balance</Text>
               <Text style={styles.heroAmount}>
                 {net < 0 ? '-' : ''}${Math.abs(net).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </Text>

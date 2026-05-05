@@ -14,10 +14,11 @@ import {
   Platform,
   KeyboardAvoidingView,
 } from 'react-native';
-import { storage } from '../utils/storage';
 import { apiRequest } from '../utils/api';
+import { saveCache, readCache, isOnline } from '../utils/cache';
 import { recordTransaction } from '../utils/streak';
 import { getCategoryEmoji } from '../utils/categoryIcon';
+import OfflineBanner from '../components/OfflineBanner';
 
 function today() {
   return new Date().toISOString().split('T')[0];
@@ -65,14 +66,21 @@ export default function AddTransactionScreen({ navigation, route }) {
   useEffect(() => {
     (async () => {
       try {
-        const res = await apiRequest('/categories');
-        if (!res.ok) throw new Error(`Failed to load categories (${res.status})`);
-        const data = await res.json();
-        const raw = [...(data.system ?? []), ...(data.custom ?? [])];
-        const normalised = raw.map((c) =>
-          typeof c === 'string' ? { id: c, name: c } : { id: c.id ?? c.name, name: c.name }
-        );
-        setCategories(normalised);
+        const online = await isOnline();
+        if (online) {
+          const res = await apiRequest('/categories');
+          if (!res.ok) throw new Error(`Failed to load categories (${res.status})`);
+          const data = await res.json();
+          const raw = [...(data.system ?? []), ...(data.custom ?? [])];
+          const normalised = raw.map((c) =>
+            typeof c === 'string' ? { id: c, name: c } : { id: c.id ?? c.name, name: c.name }
+          );
+          setCategories(normalised);
+          await saveCache('categories', normalised);
+        } else {
+          const cached = await readCache('categories');
+          if (cached) setCategories(cached);
+        }
       } catch (err) {
         setCatError(err.message);
       } finally {
@@ -93,6 +101,15 @@ export default function AddTransactionScreen({ navigation, route }) {
   }
 
   async function handleSubmit() {
+    const online = await isOnline();
+    if (!online) {
+      if (Platform.OS === 'web') {
+        window.alert('You\'re offline · Saving transactions requires an internet connection.');
+      } else {
+        Alert.alert('You\'re offline', 'Saving transactions requires an internet connection.');
+      }
+      return;
+    }
     const errs = validate();
     if (Object.keys(errs).length) {
       setErrors(errs);
@@ -129,6 +146,7 @@ export default function AddTransactionScreen({ navigation, route }) {
 
   return (
     <SafeAreaView style={styles.safeArea}>
+      <OfflineBanner cacheKey="categories" />
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
 

@@ -14,12 +14,11 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import { storage } from '../utils/storage';
 import { apiRequest } from '../utils/api';
+import { saveCache, readCache, isOnline } from '../utils/cache';
 import Svg, { Circle } from 'react-native-svg';
 import { useBudgetAlert } from '../context/BudgetAlertContext';
-
-const BASE = 'https://finance-tracker-production-e13e.up.railway.app/api/v1';
+import OfflineBanner from '../components/OfflineBanner';
 
 function RingProgress({ size, strokeWidth, progress, color, backgroundColor }) {
   const radius = (size - strokeWidth) / 2;
@@ -43,7 +42,6 @@ function RingProgress({ size, strokeWidth, progress, color, backgroundColor }) {
 }
 
 export default function BudgetScreen({ navigation }) {
-  const [token, setToken] = useState(null);
   const [budgets, setBudgets] = useState([]);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -57,39 +55,60 @@ export default function BudgetScreen({ navigation }) {
   const [amount, setAmount] = useState('');
   const [saving, setSaving] = useState(false);
 
-  const fetchData = useCallback(async (tok) => {
-    if (!tok) return;
+  const fetchData = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const [budgetsRes, categoriesRes, summaryRes] = await Promise.all([
-        apiRequest('/budgets'),
-        apiRequest('/categories'),
-        apiRequest('/summary'),
-      ]);
+      const online = await isOnline();
+      if (online) {
+        const [budgetsRes, categoriesRes, summaryRes] = await Promise.all([
+          apiRequest('/budgets'),
+          apiRequest('/categories'),
+          apiRequest('/summary'),
+        ]);
 
-      if (!budgetsRes.ok) {
-        const d = await budgetsRes.json().catch(() => ({}));
-        throw new Error(d?.detail || `Budgets fetch failed (${budgetsRes.status})`);
-      }
-      if (!categoriesRes.ok) {
-        const d = await categoriesRes.json().catch(() => ({}));
-        throw new Error(d?.detail || `Categories fetch failed (${categoriesRes.status})`);
-      }
+        if (!budgetsRes.ok) {
+          const d = await budgetsRes.json().catch(() => ({}));
+          throw new Error(d?.detail || `Budgets fetch failed (${budgetsRes.status})`);
+        }
+        if (!categoriesRes.ok) {
+          const d = await categoriesRes.json().catch(() => ({}));
+          throw new Error(d?.detail || `Categories fetch failed (${categoriesRes.status})`);
+        }
 
-      const [budgetsData, categoriesData] = await Promise.all([budgetsRes.json(), categoriesRes.json()]);
-      const budgetList = Array.isArray(budgetsData) ? budgetsData : (budgetsData.items ?? []);
-      setBudgets(budgetList);
-      setCategories([...(categoriesData.system ?? []), ...(categoriesData.custom ?? [])]);
+        const [budgetsData, categoriesData] = await Promise.all([budgetsRes.json(), categoriesRes.json()]);
+        const budgetList = Array.isArray(budgetsData) ? budgetsData : (budgetsData.items ?? []);
+        const categoryList = [...(categoriesData.system ?? []), ...(categoriesData.custom ?? [])];
+        setBudgets(budgetList);
+        setCategories(categoryList);
+        await saveCache('budgets', budgetList);
+        await saveCache('budgets_categories', categoryList);
 
-      const summaryData = summaryRes.ok ? await summaryRes.json() : null;
-      const perfMap = {};
-      for (const perf of (summaryData?.budget_performance ?? [])) {
-        if (perf.category?.id) perfMap[perf.category.id] = perf;
+        const summaryData = summaryRes.ok ? await summaryRes.json() : null;
+        if (summaryData) await saveCache('summary', summaryData);
+        const perfMap = {};
+        for (const perf of (summaryData?.budget_performance ?? [])) {
+          if (perf.category?.id) perfMap[perf.category.id] = perf;
+        }
+        setPerformanceMap(perfMap);
+        const alertCount = Object.values(perfMap).filter((b) => (b.percentage_used ?? 0) >= 80).length;
+        setAlertCount(alertCount);
+      } else {
+        const cachedBudgets = await readCache('budgets');
+        const cachedCategories = await readCache('budgets_categories');
+        const cachedSummary = await readCache('summary');
+        if (cachedBudgets) setBudgets(cachedBudgets);
+        if (cachedCategories) setCategories(cachedCategories);
+        if (cachedSummary) {
+          const perfMap = {};
+          for (const perf of (cachedSummary?.budget_performance ?? [])) {
+            if (perf.category?.id) perfMap[perf.category.id] = perf;
+          }
+          setPerformanceMap(perfMap);
+          const alertCount = Object.values(perfMap).filter((b) => (b.percentage_used ?? 0) >= 80).length;
+          setAlertCount(alertCount);
+        }
       }
-      setPerformanceMap(perfMap);
-      const alertCount = Object.values(perfMap).filter((b) => (b.percentage_used ?? 0) >= 80).length;
-      setAlertCount(alertCount);
     } catch (err) {
       setError(err.message || 'Failed to load budgets.');
     } finally {
@@ -97,16 +116,9 @@ export default function BudgetScreen({ navigation }) {
     }
   }, [navigation]);
 
-  useEffect(() => {
-    storage.getItem('access_token').then(tok => {
-      if (!tok) navigation.getParent()?.replace('Login');
-      else setToken(tok);
-    });
-  }, [navigation]);
+  useEffect(() => { fetchData(); }, [fetchData]);
 
-  useEffect(() => { if (token) fetchData(token); }, [token, fetchData]);
-
-  useFocusEffect(useCallback(() => { if (token) fetchData(token); }, [token, fetchData]));
+  useFocusEffect(useCallback(() => { fetchData(); }, [fetchData]));
 
   function openAddModal() {
     setEditingBudget(null); setSelectedCategory(null); setAmount(''); setModalVisible(true);
@@ -124,6 +136,15 @@ export default function BudgetScreen({ navigation }) {
   }
 
   async function handleSave() {
+    const online = await isOnline();
+    if (!online) {
+      if (Platform.OS === 'web') {
+        window.alert('You\'re offline · Saving budgets requires an internet connection.');
+      } else {
+        Alert.alert('You\'re offline', 'Saving budgets requires an internet connection.');
+      }
+      return;
+    }
     if (!selectedCategory) { Alert.alert('Validation', 'Please select a category.'); return; }
     const parsed = parseFloat(amount);
     if (!amount || isNaN(parsed) || parsed <= 0) { Alert.alert('Validation', 'Enter a valid budget amount.'); return; }
@@ -138,7 +159,7 @@ export default function BudgetScreen({ navigation }) {
       });
       if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d?.detail || `Save failed (${res.status})`); }
       closeModal();
-      await fetchData(token);
+      await fetchData();
     } catch (err) {
       Alert.alert('Error', err.message || 'Failed to save budget.');
     } finally {
@@ -152,7 +173,7 @@ export default function BudgetScreen({ navigation }) {
   if (error) return (
     <SafeAreaView style={styles.centered}>
       <Text style={styles.errorText}>{error}</Text>
-      <TouchableOpacity style={styles.retryButton} onPress={() => fetchData(token)}><Text style={styles.retryButtonText}>Retry</Text></TouchableOpacity>
+      <TouchableOpacity style={styles.retryButton} onPress={() => fetchData()}><Text style={styles.retryButtonText}>Retry</Text></TouchableOpacity>
     </SafeAreaView>
   );
 
@@ -163,6 +184,7 @@ export default function BudgetScreen({ navigation }) {
 
   return (
     <SafeAreaView style={styles.container}>
+      <OfflineBanner cacheKey="budgets" />
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Budgets</Text>
       </View>
