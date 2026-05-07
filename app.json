@@ -1,20 +1,22 @@
 {
   "expo": {
-    "name": "mobile",
+    "name": "Ledge",
     "slug": "mobile",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "dark",
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#121318"
     },
     "ios": {
       "supportsTablet": true
     },
     "android": {
+      "package": "com.alu1212.ledge",
+      "versionCode": 1,
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -24,6 +26,12 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "6b176f71-9a6a-45eb-b3a7-a35196eefad2"
+      }
+    },
+    "owner": "alu1212"
   }
 }
